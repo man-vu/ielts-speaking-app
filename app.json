@@ -12,7 +12,9 @@
       "supportsTablet": false,
       "icon": "./assets/expo.icon",
       "infoPlist": {
-        "NSAppTransportSecurity": { "NSAllowsArbitraryLoads": true }
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": true
+        }
       }
     },
     "android": {
@@ -44,7 +46,8 @@
           "iosBackgroundMode": false,
           "iosMicrophonePermission": "IELTS Speaking needs the microphone so the examiner can hear your answers."
         }
-      ]
+      ],
+      "expo-audio"
     ],
     "experiments": {
       "typedRoutes": true,
