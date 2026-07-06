@@ -1,0 +1,164 @@
+import { useCallback, useEffect, useRef, useState } from "react";
+import { GoogleGenAI, Modality, type Session } from "@google/genai";
+import { int16ToBase64 } from "@/src/lib/audio/pcm";
+import { Pcm24kPlayer } from "@/src/lib/audio/player";
+
+export type LiveStatus = "idle" | "connecting" | "live" | "closed" | "error";
+
+export interface LiveHandlers {
+  onToolCall(name: string, args: Record<string, unknown>): void;
+  onResumptionHandle(handle: string): void;
+  onUnexpectedClose(): void;
+  onError(message: string): void;
+}
+
+export interface ConnectOpts {
+  token: string;
+  model: string;
+  resumeHandle?: string;
+}
+
+export function useLiveSession(handlers: LiveHandlers) {
+  const [status, setStatus] = useState<LiveStatus>("idle");
+  const sessionRef = useRef<Session | null>(null);
+  const playerRef = useRef<Pcm24kPlayer | null>(null);
+  const intentionalCloseRef = useRef(false);
+  const handlersRef = useRef(handlers);
+  useEffect(() => {
+    handlersRef.current = handlers;
+  });
+
+  // Bumped on every connect()/disconnect() so stale async work (a pending
+  // ai.live.connect(), a superseded session's callbacks) can recognize it's
+  // no longer current and become a no-op.
+  const genRef = useRef(0);
+
+  const teardown = useCallback(() => {
+    sessionRef.current?.close();
+    sessionRef.current = null;
+    void playerRef.current?.close();
+    playerRef.current = null;
+  }, []);
+
+  const disconnect = useCallback(() => {
+    genRef.current++;
+    intentionalCloseRef.current = true;
+    teardown();
+    setStatus("closed");
+  }, [teardown]);
+
+  const connect = useCallback(async (opts: ConnectOpts) => {
+    genRef.current++;
+    const gen = genRef.current;
+    intentionalCloseRef.current = true;
+    teardown();
+    intentionalCloseRef.current = false;
+
+    try {
+      setStatus("connecting");
+
+      const player = new Pcm24kPlayer();
+      playerRef.current = player;
+
+      // Ephemeral token IS the api key; tokens are a v1alpha feature.
+      const ai = new GoogleGenAI({
+        apiKey: opts.token,
+        httpOptions: { apiVersion: "v1alpha" },
+      });
+
+      const session = await ai.live.connect({
+        model: opts.model,
+        callbacks: {
+          onopen: () => {
+            if (genRef.current !== gen) return;
+            setStatus("live");
+          },
+          onmessage: (message) => {
+            if (genRef.current !== gen) return;
+
+            // Model audio out (24 kHz PCM16 base64)
+            if (message.data) player.enqueue(message.data);
+
+            const sc = message.serverContent;
+            if (sc?.interrupted) player.stop();
+
+            if (message.toolCall?.functionCalls) {
+              const responses = message.toolCall.functionCalls.map((fc) => {
+                handlersRef.current.onToolCall(
+                  fc.name ?? "", (fc.args ?? {}) as Record<string, unknown>
+                );
+                return { id: fc.id, name: fc.name, response: { result: "ok" } };
+              });
+              sessionRef.current?.sendToolResponse({ functionResponses: responses });
+            }
+
+            const update = message.sessionResumptionUpdate;
+            if (update?.resumable && update.newHandle) {
+              handlersRef.current.onResumptionHandle(update.newHandle);
+            }
+            // goAway means the server will drop us soon; treat as a reconnect
+            // signal — exam-room resumes with the stored handle.
+            if (message.goAway) handlersRef.current.onUnexpectedClose();
+          },
+          onerror: (e: ErrorEvent) => {
+            if (genRef.current !== gen) return;
+            setStatus("error");
+            handlersRef.current.onError(e.message ?? "Live connection error");
+          },
+          onclose: () => {
+            if (genRef.current !== gen) return;
+            setStatus("closed");
+            if (!intentionalCloseRef.current) handlersRef.current.onUnexpectedClose();
+          },
+        },
+        config: {
+          responseModalities: [Modality.AUDIO],
+          contextWindowCompression: { slidingWindow: {} }, // removes 15-min cap
+          sessionResumption: { handle: opts.resumeHandle ?? undefined },
+        },
+      });
+
+      if (genRef.current !== gen) {
+        session.close();
+        return;
+      }
+      sessionRef.current = session;
+    } catch (err) {
+      if (genRef.current === gen) {
+        teardown();
+        setStatus("error");
+      }
+      throw err;
+    }
+  }, [teardown]);
+
+  const sendSystemText = useCallback((text: string) => {
+    try {
+      sessionRef.current?.sendClientContent({
+        turns: [{ role: "user", parts: [{ text }] }],
+        turnComplete: true,
+      });
+    } catch (err) {
+      console.warn("sendSystemText failed:", err);
+    }
+  }, []);
+
+  const sendAudioChunk = useCallback((pcm: Int16Array) => {
+    try {
+      sessionRef.current?.sendRealtimeInput({
+        audio: { data: int16ToBase64(pcm), mimeType: "audio/pcm;rate=16000" },
+      });
+    } catch (err) {
+      console.warn("sendAudioChunk failed:", err);
+    }
+  }, []);
+
+  const setExaminerMuted = useCallback((muted: boolean) => {
+    const player = playerRef.current;
+    if (!player) return;
+    player.muted = muted;
+    if (muted) player.stop();
+  }, []);
+
+  return { status, connect, disconnect, sendSystemText, sendAudioChunk, setExaminerMuted };
+}
