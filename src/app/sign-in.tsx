@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { router } from "expo-router";
 import {
-  KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View,
+  KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput,
 } from "react-native";
 import { supabase } from "@/src/lib/supabase";
 
