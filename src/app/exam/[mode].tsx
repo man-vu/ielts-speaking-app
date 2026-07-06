@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 import { Stack, useLocalSearchParams } from "expo-router";
 import { useKeepAwake } from "expo-keep-awake";
@@ -19,6 +20,7 @@ export default function ExamScreen() {
   const params = useLocalSearchParams<{ mode: string }>();
   const mode = (MODES.includes(params.mode as SimMode) ? params.mode : "part1") as SimMode;
   const exam = useExamOrchestrator(mode);
+  const [retrying, setRetrying] = useState(false);
 
   if (exam.screen === "preflight") {
     return (
@@ -37,8 +39,16 @@ export default function ExamScreen() {
           {exam.screen === "uploading" ? "Uploading your answers for scoring…" : exam.banner || "Something went wrong."}
         </Text>
         {exam.screen === "upload_failed" && (
-          <Pressable style={styles.button} onPress={() => void exam.retryUpload()}>
-            <Text style={styles.buttonText}>Retry upload</Text>
+          <Pressable
+            style={styles.button}
+            onPress={() => {
+              if (retrying) return;
+              setRetrying(true);
+              void exam.retryUpload().finally(() => setRetrying(false));
+            }}
+            disabled={retrying}
+          >
+            <Text style={styles.buttonText}>{retrying ? "Retrying…" : "Retry upload"}</Text>
           </Pressable>
         )}
       </View>

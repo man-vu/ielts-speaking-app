@@ -5,6 +5,7 @@ import { requestMicPermission } from "@/src/lib/audio/session";
 export function Preflight({ onReady }: { onReady(): void }) {
   const [granted, setGranted] = useState(false);
   const [error, setError] = useState("");
+  const [starting, setStarting] = useState(false);
 
   async function request() {
     setError("");
@@ -30,8 +31,16 @@ export function Preflight({ onReady }: { onReady(): void }) {
           <Text style={styles.buttonText}>Enable microphone</Text>
         </Pressable>
       ) : (
-        <Pressable style={[styles.button, styles.begin]} onPress={onReady}>
-          <Text style={styles.buttonText}>Begin exam</Text>
+        <Pressable
+          style={[styles.button, styles.begin]}
+          onPress={() => {
+            if (starting) return;
+            setStarting(true);
+            onReady();
+          }}
+          disabled={starting}
+        >
+          <Text style={styles.buttonText}>{starting ? "Starting…" : "Begin exam"}</Text>
         </Pressable>
       )}
       {error ? <Text style={styles.error}>{error}</Text> : null}
