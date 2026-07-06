@@ -32,11 +32,11 @@ export default function Home() {
             .eq("month_start", currentMonthStart()).maybeSingle(),
         ]);
         if (cancelled) return;
-        const limit = SIM_MONTHLY_UNITS[(profile?.tier as string) ?? "free"] ?? 0;
+        const limit = SIM_MONTHLY_UNITS[(profile?.tier as string) ?? "free"];
         setUnitsLine(
           limit === null
             ? "Unlimited sessions"
-            : `${Math.max(0, limit - (usage?.units ?? 0))} of ${limit} units left this month`
+            : `${Math.max(0, (limit ?? 0) - (usage?.units ?? 0))} of ${limit ?? 0} units left this month`
         );
       })();
       return () => { cancelled = true; };

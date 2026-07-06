@@ -28,6 +28,7 @@ export default function ReportScreen() {
 
   useEffect(() => {
     let stop = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
     async function poll() {
       try {
         const res = await apiFetch(`/api/sessions/${sessionId}/report`, { method: "GET" });
@@ -36,14 +37,17 @@ export default function ReportScreen() {
         if (stop) return;
         setPayload(body);
         if (body.status !== "scored" && body.status !== "aborted") {
-          setTimeout(() => void poll(), 5000);
+          timer = setTimeout(() => void poll(), 5000);
         }
       } catch (err) {
         if (!stop) setError(err instanceof Error ? err.message : "Failed to load report");
       }
     }
     void poll();
-    return () => { stop = true; };
+    return () => {
+      stop = true;
+      if (timer) clearTimeout(timer);
+    };
   }, [sessionId]);
 
   if (error) return <View style={styles.center}><Text style={styles.error}>{error}</Text></View>;
