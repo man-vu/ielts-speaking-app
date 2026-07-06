@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
-import { Stack, useLocalSearchParams } from "expo-router";
+import { Stack, useLocalSearchParams, useNavigation } from "expo-router";
 import { useKeepAwake } from "expo-keep-awake";
 import { useExamOrchestrator } from "@/src/hooks/use-exam-orchestrator";
 import { Preflight } from "@/src/components/preflight";
@@ -21,6 +21,32 @@ export default function ExamScreen() {
   const mode = (MODES.includes(params.mode as SimMode) ? params.mode : "part1") as SimMode;
   const exam = useExamOrchestrator(mode);
   const [retrying, setRetrying] = useState(false);
+  const navigation = useNavigation();
+
+  const midExam = exam.screen === "exam" && exam.phase !== "ended" && exam.phase !== "connecting";
+
+  function confirmEndExam() {
+    Alert.alert("End the exam now?", "Completed parts will still be scored.", [
+      { text: "Keep going", style: "cancel" },
+      { text: "End exam", style: "destructive", onPress: exam.endEarly },
+    ]);
+  }
+
+  // I3: guard back navigation mid-exam. usePreventRemove isn't exported by
+  // expo-router in this SDK and @react-navigation/native isn't installed as
+  // a standalone package here, so fall back to the underlying
+  // navigation.addListener("beforeRemove", ...) it's built on. On confirm we
+  // call exam.endEarly() directly (NOT the intercepted action) — endEarly
+  // drives finishAndScore -> router.replace, which supersedes any pending
+  // navigation anyway.
+  useEffect(() => {
+    return navigation.addListener("beforeRemove", (e) => {
+      if (!midExam) return;
+      e.preventDefault();
+      confirmEndExam();
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [navigation, midExam]);
 
   if (exam.screen === "preflight") {
     return (
@@ -66,14 +92,7 @@ export default function ExamScreen() {
           title: PHASE_LABELS[exam.phase],
           headerRight: () =>
             exam.phase !== "ended" && exam.phase !== "connecting" ? (
-              <Pressable
-                onPress={() =>
-                  Alert.alert("End the exam now?", "Completed parts will still be scored.", [
-                    { text: "Keep going", style: "cancel" },
-                    { text: "End exam", style: "destructive", onPress: exam.endEarly },
-                  ])
-                }
-              >
+              <Pressable onPress={confirmEndExam}>
                 <Text style={styles.endLink}>End</Text>
               </Pressable>
             ) : null,

@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { router } from "expo-router";
 import { File, Paths } from "expo-file-system";
+import { AudioManager } from "react-native-audio-api";
 import { PART2_PREP_SECONDS, PART2_TALK_SECONDS } from "@/src/lib/config";
 import {
   examReducer, initialExamState, phaseTimeoutSeconds, recordingPartFor,
   type ExamEvent, type ExamPhase,
 } from "@/src/lib/exam/machine";
-import type { ExamDisplayData, SimMode, TokenResponse } from "@/src/lib/types";
+import type { ExamDisplayData, ReportPayload, SimMode, TokenResponse } from "@/src/lib/types";
 import { PartAccumulator } from "@/src/lib/audio/part-accumulator";
 import {
   configureExamAudioSession, deactivateAudioSession, requestMicPermission,
@@ -35,7 +36,13 @@ export function useExamOrchestrator(mode: SimMode): {
   const [countdown, setCountdown] = useState<number | null>(null);
   const [banner, setBanner] = useState("");
 
-  const accumulatorRef = useRef(new PartAccumulator(16000));
+  // Lazy init — a `new PartAccumulator(...)` argument to useRef would
+  // otherwise be constructed (and discarded) on every render.
+  const accumulatorRef = useRef<PartAccumulator | null>(null);
+  function getAccumulator(): PartAccumulator {
+    if (!accumulatorRef.current) accumulatorRef.current = new PartAccumulator(16000);
+    return accumulatorRef.current;
+  }
   const currentPartRef = useRef<1 | 2 | 3 | null>(null);
   const resumeHandleRef = useRef<string | undefined>(undefined);
   const reconnectsRef = useRef(0);
@@ -46,7 +53,15 @@ export function useExamOrchestrator(mode: SimMode): {
     stateRef.current = state;
   });
 
+  // Native interruption subscription lives for the duration of begin()..unmount;
+  // interruptionHandlerRef always points at the latest closure (see below) so
+  // the once-registered native callback never runs stale session/state values.
+  const interruptionSubRef = useRef<{ remove(): void } | undefined>(undefined);
+
   const micStream = useMicStream();
+  const onMicError = useCallback((message: string) => {
+    setBanner(`Microphone error: ${message}`);
+  }, []);
 
   const live = useLiveSession({
     onToolCall(name, args) {
@@ -79,22 +94,36 @@ export function useExamOrchestrator(mode: SimMode): {
     liveRef.current = live;
   });
 
+  // The native interruption listener is registered once (in begin()) but
+  // must always run against the latest session/state — route it through a
+  // ref updated every render, same pattern as liveRef above.
+  const interruptionHandlerRef = useRef<
+    (event: { type: "began" | "ended"; shouldResume: boolean }) => void | Promise<void>
+  >(() => {});
+  useEffect(() => {
+    interruptionHandlerRef.current = handleAudioInterruption;
+  });
+
   // Mic chunks always feed the live session; they only accumulate into the
   // scoring recording while currentPartRef names an active part (set by the
   // phase effect below) — this replaces the web's MediaRecorder start/stop.
   const onChunk = useCallback((pcm: Int16Array) => {
     liveRef.current.sendAudioChunk(pcm);
-    if (currentPartRef.current) accumulatorRef.current.add(currentPartRef.current, pcm);
+    if (currentPartRef.current) getAccumulator().add(currentPartRef.current, pcm);
   }, []);
 
   // Unmount safety net: nothing should stay hot (open connection, running
-  // mic, active audio session) after the hook is torn down.
+  // mic, active audio session, interruption subscription) after the hook is
+  // torn down.
   useEffect(() => {
     return () => {
       micStream.stop();
       micRunningRef.current = false;
       liveRef.current.disconnect();
       void deactivateAudioSession();
+      interruptionSubRef.current?.remove();
+      interruptionSubRef.current = undefined;
+      AudioManager.observeAudioInterruptions(false);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -116,10 +145,34 @@ export function useExamOrchestrator(mode: SimMode): {
       });
       const body = (await res.json()) as TokenResponse & { error?: string };
       if (!res.ok) throw new Error(body.error ?? `HTTP ${res.status}`);
+      // Bail if the exam was force-ended while the token fetch was in flight
+      // — otherwise a hot mic/session resurrects behind the fatal/ended screen.
+      if (endedRef.current) {
+        liveRef.current.disconnect();
+        micStream.stop();
+        void deactivateAudioSession();
+        return;
+      }
       setSession(body);
       await live.connect({ token: body.token, model: body.model });
-      await micStream.start(onChunk);
+      if (endedRef.current) {
+        liveRef.current.disconnect();
+        micStream.stop();
+        void deactivateAudioSession();
+        return;
+      }
+      await micStream.start(onChunk, onMicError);
+      if (endedRef.current) {
+        liveRef.current.disconnect();
+        micStream.stop();
+        void deactivateAudioSession();
+        return;
+      }
       micRunningRef.current = true;
+      AudioManager.observeAudioInterruptions(true);
+      interruptionSubRef.current = AudioManager.addSystemEventListener("interruption", (event) =>
+        void interruptionHandlerRef.current(event)
+      );
       dispatch({ type: "CONNECTED" });
     } catch (err) {
       liveRef.current.disconnect();
@@ -128,7 +181,7 @@ export function useExamOrchestrator(mode: SimMode): {
       setBanner(err instanceof Error ? err.message : "Could not start the exam.");
       setScreen("fatal");
     }
-  }, [live, mode, micStream, onChunk]);
+  }, [live, mode, micStream, onChunk, onMicError]);
 
   async function attemptResume() {
     if (reconnectsRef.current >= 2 || !session || !micRunningRef.current) {
@@ -155,12 +208,32 @@ export function useExamOrchestrator(mode: SimMode): {
     }
   }
 
+  // I2: iOS audio interruptions (phone calls, Siri, other apps grabbing the
+  // session). On "began" we just stop the local mic pipeline and wait — the
+  // live socket is left alone. On "ended" the simplest deterministic path is
+  // to always disconnect first, then attemptResume(): if the socket actually
+  // survived, this just costs one reconnect; it never risks a double-connect.
+  async function handleAudioInterruption(event: { type: "began" | "ended"; shouldResume: boolean }) {
+    if (endedRef.current) return;
+    if (event.type === "began") {
+      micStream.stop();
+      micRunningRef.current = false;
+      setBanner("Audio interrupted — reconnecting when finished…");
+      return;
+    }
+    liveRef.current.disconnect();
+    await configureExamAudioSession();
+    await micStream.start(onChunk, onMicError);
+    micRunningRef.current = true;
+    void attemptResume();
+  }
+
   async function abortSession() {
     if (!session) return setScreen("fatal");
     // Recordings on hand are synchronous (no stop/wait dance needed — the
     // accumulator already holds whatever chunks landed while a part was
     // active). Partial scoring is still worth more than a refund.
-    if (accumulatorRef.current.parts().length > 0) {
+    if (getAccumulator().parts().length > 0) {
       dispatch({ type: "FORCE_END" });
       return;
     }
@@ -184,7 +257,7 @@ export function useExamOrchestrator(mode: SimMode): {
   // repeating the one-time teardown in finishAndScore.
   async function uploadRecordings() {
     if (!session) return setScreen("fatal");
-    const parts = accumulatorRef.current.parts();
+    const parts = getAccumulator().parts();
     const fd = new FormData();
     fd.append("sessionId", session.sessionId);
     const cacheFiles: File[] = [];
@@ -192,7 +265,7 @@ export function useExamOrchestrator(mode: SimMode): {
       for (const part of parts) {
         // RN 0.86's Blob constructor throws on ArrayBuffer parts, so the WAV
         // goes to a cache file instead; FormData gets a file descriptor.
-        const wavBytes = accumulatorRef.current.toWav(part);
+        const wavBytes = getAccumulator().toWav(part);
         const file = new File(Paths.cache, `part${part}.wav`);
         file.write(wavBytes);
         cacheFiles.push(file);
@@ -203,20 +276,32 @@ export function useExamOrchestrator(mode: SimMode): {
           `part${part}`,
           { uri: file.uri, name: `part${part}.wav`, type: "audio/wav" } as unknown as Blob
         );
-        fd.append(`duration${part}`, String(Math.round(accumulatorRef.current.durationSeconds(part))));
+        fd.append(`duration${part}`, String(Math.round(getAccumulator().durationSeconds(part))));
       }
       // Do NOT set Content-Type — fetch derives the multipart boundary from
       // the FormData body.
       const res = await apiFetch("/api/score", { method: "POST", body: fd });
       // 503 means scoring is temporarily down but the audio was already
-      // persisted server-side — the report screen's retry handles that case.
-      if (res.ok || res.status === 503) {
+      // persisted server-side; 409 means the server had already scored this
+      // session (e.g. our fetch timed out but the upload/score actually
+      // finished) — both land on the report screen, which handles the rest.
+      if (res.ok || res.status === 503 || res.status === 409) {
         router.replace(`/report/${session.sessionId}`);
         return;
       }
       setBanner("Upload failed. Your recordings are kept on this page — try again.");
       setScreen("upload_failed");
     } catch {
+      // Network error or timeout — best-effort probe: if the server actually
+      // finished (scored/completed) despite our fetch failing, go straight to
+      // the report instead of telling the user their upload failed.
+      const probe = await apiFetch(`/api/sessions/${session.sessionId}/report`, { method: "GET" })
+        .then((r) => (r.ok ? (r.json() as Promise<ReportPayload>) : null))
+        .catch(() => null);
+      if (probe && (probe.status === "scored" || probe.status === "completed")) {
+        router.replace(`/report/${session.sessionId}`);
+        return;
+      }
       setBanner("Upload failed — check your connection and try again.");
       setScreen("upload_failed");
     } finally {
@@ -239,7 +324,7 @@ export function useExamOrchestrator(mode: SimMode): {
     await deactivateAudioSession();
 
     if (!session) return setScreen("fatal");
-    if (accumulatorRef.current.parts().length === 0) {
+    if (getAccumulator().parts().length === 0) {
       // Nothing to score — refund the same way any other abort would.
       const res = await apiFetch(`/api/sessions/${session.sessionId}/abort`, { method: "POST" });
       const body = (await res.json().catch(() => ({}))) as { refunded?: boolean };

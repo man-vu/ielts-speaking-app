@@ -1,9 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Stack, useLocalSearchParams } from "expo-router";
-import { useAudioPlayer } from "expo-audio";
+import { setAudioModeAsync, useAudioPlayer } from "expo-audio";
 import { apiFetch } from "@/src/lib/api";
 import type { ReportPayload } from "@/src/lib/types";
+
+const AUTO_RESCORE_DELAY_MS = 20_000;
 
 const CRITERIA: { key: string; label: string }[] = [
   { key: "fluency_coherence", label: "Fluency & Coherence" },
@@ -25,6 +27,14 @@ export default function ReportScreen() {
   const { sessionId } = useLocalSearchParams<{ sessionId: string }>();
   const [payload, setPayload] = useState<ReportPayload | null>(null);
   const [error, setError] = useState("");
+  const [rescoring, setRescoring] = useState(false);
+  const [rescoreError, setRescoreError] = useState("");
+  const autoRescoreAttemptedRef = useRef(false);
+
+  // I5a: recordings must play even when the hardware silent switch is on.
+  useEffect(() => {
+    void setAudioModeAsync({ playsInSilentMode: true });
+  }, []);
 
   useEffect(() => {
     let stop = false;
@@ -35,12 +45,17 @@ export default function ReportScreen() {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const body = (await res.json()) as ReportPayload;
         if (stop) return;
+        setError("");
         setPayload(body);
         if (body.status !== "scored" && body.status !== "aborted") {
           timer = setTimeout(() => void poll(), 5000);
         }
       } catch (err) {
-        if (!stop) setError(err instanceof Error ? err.message : "Failed to load report");
+        if (stop) return;
+        // Minor 6: a transient fetch error must not stop polling — show the
+        // banner but keep retrying every 5 s (recovery, not a dead end).
+        setError(err instanceof Error ? err.message : "Failed to load report");
+        timer = setTimeout(() => void poll(), 5000);
       }
     }
     void poll();
@@ -50,8 +65,43 @@ export default function ReportScreen() {
     };
   }, [sessionId]);
 
-  if (error) return <View style={styles.center}><Text style={styles.error}>{error}</Text></View>;
-  if (!payload) return <View style={styles.center}><Text style={styles.muted}>Loading…</Text></View>;
+  async function rescore() {
+    if (rescoring) return;
+    setRescoring(true);
+    setRescoreError("");
+    try {
+      await apiFetch("/api/score", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId }),
+      });
+      // Ignore the response — the 5 s poll above picks up the resulting status.
+    } catch (err) {
+      setRescoreError(err instanceof Error ? err.message : "Rescore failed — try again in a minute.");
+    } finally {
+      setRescoring(false);
+    }
+  }
+
+  // C1c: a session stuck in "completed" (uploaded but never scored, e.g. the
+  // score call's response never made it back) gets one automatic rescore
+  // attempt, mirroring the web's ScoringPending behavior.
+  useEffect(() => {
+    if (payload?.status !== "completed") return;
+    if (autoRescoreAttemptedRef.current) return;
+    autoRescoreAttemptedRef.current = true;
+    const timer = setTimeout(() => void rescore(), AUTO_RESCORE_DELAY_MS);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [payload?.status]);
+
+  if (!payload) {
+    return (
+      <View style={styles.center}>
+        <Text style={error ? styles.error : styles.muted}>{error || "Loading…"}</Text>
+      </View>
+    );
+  }
   if (payload.status === "aborted") {
     return <View style={styles.center}><Text style={styles.muted}>This session was aborted before scoring.</Text></View>;
   }
@@ -60,6 +110,19 @@ export default function ReportScreen() {
       <View style={styles.center}>
         <Text style={styles.muted}>Scoring your performance…</Text>
         <Text style={styles.hint}>This usually takes under a minute. Checking automatically.</Text>
+        {error ? <Text style={styles.error}>{error}</Text> : null}
+        {payload.status === "completed" && (
+          <>
+            <Pressable
+              style={styles.button}
+              onPress={() => void rescore()}
+              disabled={rescoring}
+            >
+              <Text style={styles.buttonText}>{rescoring ? "Retrying…" : "Retry scoring now"}</Text>
+            </Pressable>
+            {rescoreError ? <Text style={styles.error}>{rescoreError}</Text> : null}
+          </>
+        )}
       </View>
     );
   }
@@ -140,4 +203,6 @@ const styles = StyleSheet.create({
   fix: { color: "#6ee7b7", fontSize: 13 },
   playButton: { backgroundColor: "#4f46e522", borderRadius: 8, padding: 10, alignItems: "center" },
   playText: { color: "#818cf8" },
+  button: { backgroundColor: "#4f46e5", borderRadius: 8, padding: 14, alignItems: "center", marginTop: 12 },
+  buttonText: { color: "#fff", fontWeight: "600" },
 });
