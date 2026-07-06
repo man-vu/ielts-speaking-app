@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { router } from "expo-router";
+import { File, Paths } from "expo-file-system";
 import { PART2_PREP_SECONDS, PART2_TALK_SECONDS } from "@/src/lib/config";
 import {
   examReducer, initialExamState, phaseTimeoutSeconds, recordingPartFor,
@@ -39,6 +40,7 @@ export function useExamOrchestrator(mode: SimMode): {
   const resumeHandleRef = useRef<string | undefined>(undefined);
   const reconnectsRef = useRef(0);
   const endedRef = useRef(false);
+  const micRunningRef = useRef(false);
   const stateRef = useRef(state);
   useEffect(() => {
     stateRef.current = state;
@@ -90,6 +92,7 @@ export function useExamOrchestrator(mode: SimMode): {
   useEffect(() => {
     return () => {
       micStream.stop();
+      micRunningRef.current = false;
       liveRef.current.disconnect();
       void deactivateAudioSession();
     };
@@ -116,8 +119,10 @@ export function useExamOrchestrator(mode: SimMode): {
       setSession(body);
       await live.connect({ token: body.token, model: body.model });
       await micStream.start(onChunk);
+      micRunningRef.current = true;
       dispatch({ type: "CONNECTED" });
     } catch (err) {
+      liveRef.current.disconnect();
       micStream.stop();
       await deactivateAudioSession();
       setBanner(err instanceof Error ? err.message : "Could not start the exam.");
@@ -126,7 +131,7 @@ export function useExamOrchestrator(mode: SimMode): {
   }, [live, mode, micStream, onChunk]);
 
   async function attemptResume() {
-    if (reconnectsRef.current >= 2 || !session) {
+    if (reconnectsRef.current >= 2 || !session || !micRunningRef.current) {
       await abortSession();
       return;
     }
@@ -162,6 +167,7 @@ export function useExamOrchestrator(mode: SimMode): {
     // No usable audio — stop the mic and release the audio session before
     // going fatal.
     micStream.stop();
+    micRunningRef.current = false;
     await deactivateAudioSession();
     const res = await apiFetch(`/api/sessions/${session.sessionId}/abort`, { method: "POST" });
     const body = (await res.json().catch(() => ({}))) as { refunded?: boolean };
@@ -181,21 +187,24 @@ export function useExamOrchestrator(mode: SimMode): {
     const parts = accumulatorRef.current.parts();
     const fd = new FormData();
     fd.append("sessionId", session.sessionId);
-    for (const part of parts) {
-      // Blob-from-Uint8Array path (works with Hermes/RN's Blob polyfill in
-      // most configurations). If this proves unreliable on-device, the
-      // fallback is writing the WAV to FileSystem.cacheDirectory (via
-      // expo-file-system) and appending { uri, name: `part${part}.wav`,
-      // type: "audio/wav" } instead of a Blob.
-      const wavBytes = accumulatorRef.current.toWav(part);
-      // TS's ArrayBufferView<ArrayBuffer> vs. Uint8Array<ArrayBufferLike>
-      // mismatch forces the .buffer cast; toWav() always returns a fresh,
-      // unsliced Uint8Array, so .buffer holds exactly the WAV bytes.
-      const blob = new Blob([wavBytes.buffer as ArrayBuffer], { type: "audio/wav" });
-      fd.append(`part${part}`, blob, `part${part}.wav`);
-      fd.append(`duration${part}`, String(Math.round(accumulatorRef.current.durationSeconds(part))));
-    }
+    const cacheFiles: File[] = [];
     try {
+      for (const part of parts) {
+        // RN 0.86's Blob constructor throws on ArrayBuffer parts, so the WAV
+        // goes to a cache file instead; FormData gets a file descriptor.
+        const wavBytes = accumulatorRef.current.toWav(part);
+        const file = new File(Paths.cache, `part${part}.wav`);
+        file.write(wavBytes);
+        cacheFiles.push(file);
+        // RN's FormData accepts a { uri, name, type } file descriptor at
+        // runtime; the DOM Blob type doesn't know about that shape, hence
+        // the cast.
+        fd.append(
+          `part${part}`,
+          { uri: file.uri, name: `part${part}.wav`, type: "audio/wav" } as unknown as Blob
+        );
+        fd.append(`duration${part}`, String(Math.round(accumulatorRef.current.durationSeconds(part))));
+      }
       // Do NOT set Content-Type — fetch derives the multipart boundary from
       // the FormData body.
       const res = await apiFetch("/api/score", { method: "POST", body: fd });
@@ -210,6 +219,15 @@ export function useExamOrchestrator(mode: SimMode): {
     } catch {
       setBanner("Upload failed — check your connection and try again.");
       setScreen("upload_failed");
+    } finally {
+      // Best-effort cleanup — a leftover cache file isn't worth surfacing.
+      for (const file of cacheFiles) {
+        try {
+          file.delete();
+        } catch {
+          // ignore
+        }
+      }
     }
   }
 
@@ -217,6 +235,7 @@ export function useExamOrchestrator(mode: SimMode): {
     setScreen("uploading");
     liveRef.current.disconnect();
     micStream.stop();
+    micRunningRef.current = false;
     await deactivateAudioSession();
 
     if (!session) return setScreen("fatal");
