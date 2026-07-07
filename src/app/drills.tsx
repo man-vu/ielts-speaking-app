@@ -2,6 +2,7 @@ import { useCallback, useState } from "react";
 import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 import { Stack, useFocusEffect } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as Haptics from "expo-haptics";
 import { supabase } from "@/src/lib/supabase";
 import { overline, theme } from "@/src/lib/theme";
 
@@ -57,6 +58,7 @@ export default function Drills() {
   );
 
   async function markDone(name: string) {
+    void Haptics.selectionAsync().catch(() => {});
     const next = { ...doneMap, [name]: Date.now() };
     setDoneMap(next);
     await AsyncStorage.setItem(DONE_KEY, JSON.stringify(next)).catch(() => {});

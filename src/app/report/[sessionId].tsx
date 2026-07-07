@@ -1,7 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import { Alert, Pressable, ScrollView, Share, StyleSheet, Text, View } from "react-native";
+import {
+  Alert, Animated, Pressable, ScrollView, Share, StyleSheet, Text, View,
+} from "react-native";
 import { Stack, useLocalSearchParams } from "expo-router";
-import { setAudioModeAsync, useAudioPlayer } from "expo-audio";
+import { setAudioModeAsync } from "expo-audio";
+import * as Haptics from "expo-haptics";
+import { AudioScrubber } from "@/src/components/audio-scrubber";
 import { apiFetch } from "@/src/lib/api";
 import { segmentTranscript, speechMetrics } from "@/src/lib/report-insights";
 import type { ReportPayload } from "@/src/lib/types";
@@ -16,15 +20,6 @@ const CRITERIA: { key: string; label: string }[] = [
   { key: "pronunciation", label: "Pronunciation" },
 ];
 
-function AudioButton({ url }: { url: string }) {
-  const player = useAudioPlayer(url);
-  return (
-    <Pressable style={styles.playButton} onPress={() => (player.playing ? player.pause() : player.play())}>
-      <Text style={styles.playText}>Play / pause recording</Text>
-    </Pressable>
-  );
-}
-
 export default function ReportScreen() {
   const { sessionId } = useLocalSearchParams<{ sessionId: string }>();
   const [payload, setPayload] = useState<ReportPayload | null>(null);
@@ -32,6 +27,19 @@ export default function ReportScreen() {
   const [rescoring, setRescoring] = useState(false);
   const [rescoreError, setRescoreError] = useState("");
   const autoRescoreAttemptedRef = useRef(false);
+  const stampAnim = useRef(new Animated.Value(0)).current;
+  const stampedRef = useRef(false);
+
+  // The band arrives like a stamp coming down: scale + rotation settle with a
+  // success haptic, once, when the scored report first renders.
+  useEffect(() => {
+    if (payload?.status !== "scored" || !payload.report || stampedRef.current) return;
+    stampedRef.current = true;
+    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    Animated.spring(stampAnim, {
+      toValue: 1, useNativeDriver: true, damping: 14, stiffness: 240, mass: 0.9,
+    }).start();
+  }, [payload, stampAnim]);
 
   // I5a: recordings must play even when the hardware silent switch is on.
   useEffect(() => {
@@ -134,10 +142,21 @@ export default function ReportScreen() {
     <ScrollView contentContainerStyle={styles.container}>
       <Stack.Screen options={{ title: "Your report" }} />
       <View style={styles.hero}>
-        <View style={styles.stamp}>
+        <Animated.View
+          style={[
+            styles.stamp,
+            {
+              opacity: stampAnim,
+              transform: [
+                { scale: stampAnim.interpolate({ inputRange: [0, 1], outputRange: [1.6, 1] }) },
+                { rotate: stampAnim.interpolate({ inputRange: [0, 1], outputRange: ["-9deg", "-1.5deg"] }) },
+              ],
+            },
+          ]}
+        >
           <Text style={[overline, styles.stampLabel]}>Overall band</Text>
           <Text style={styles.heroBand}>{r.band_scores.overall.toFixed(1)}</Text>
-        </View>
+        </Animated.View>
         <Text style={styles.note}>{r.examiner_note}</Text>
         <Pressable
           style={styles.shareButton}
@@ -210,7 +229,7 @@ export default function ReportScreen() {
                 {metrics.fillers} filler{metrics.fillers === 1 ? "" : "s"}
               </Text>
             </View>
-            {rec && <AudioButton url={rec.url} />}
+            {rec && <AudioScrubber url={rec.url} />}
             <Text style={styles.muted}>
               {segments.map((seg, i) =>
                 seg.error ? (
@@ -248,7 +267,6 @@ const styles = StyleSheet.create({
   stamp: {
     alignItems: "center", gap: 2, paddingVertical: 18, paddingHorizontal: 34,
     borderWidth: 2, borderColor: theme.brass, borderRadius: 8,
-    transform: [{ rotate: "-1.5deg" }],
   },
   stampLabel: { color: theme.brass },
   heroBand: {
@@ -272,11 +290,6 @@ const styles = StyleSheet.create({
   errorItem: { gap: 2, marginTop: 8 },
   errorHead: { color: theme.stampRed, fontFamily: theme.fontDisplay, fontSize: 13.5 },
   fix: { color: theme.live, fontSize: 13.5 },
-  playButton: {
-    backgroundColor: theme.cardRaised, borderWidth: 1, borderColor: theme.borderSoft,
-    borderRadius: 8, padding: 11, alignItems: "center",
-  },
-  playText: { color: theme.info, fontSize: 13.5 },
   shareButton: {
     borderWidth: 1, borderColor: theme.borderSoft, borderRadius: 8,
     paddingVertical: 9, paddingHorizontal: 20,

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 import { Link, Stack, useFocusEffect } from "expo-router";
+import { LinearGradient } from "expo-linear-gradient";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { supabase } from "@/src/lib/supabase";
 import { SIM_MONTHLY_UNITS, UNIT_COSTS } from "@/src/lib/config";
@@ -71,6 +72,12 @@ export default function Home() {
 
   return (
     <View style={styles.container}>
+      <LinearGradient
+        colors={["#1B2140", theme.bg]}
+        locations={[0, 0.42]}
+        style={StyleSheet.absoluteFill}
+        pointerEvents="none"
+      />
       <Stack.Screen options={{ title: "", headerShown: false }} />
       <Onboarding visible={showOnboarding} onDone={() => setShowOnboarding(false)} />
 
@@ -96,7 +103,7 @@ export default function Home() {
         contentContainerStyle={{ gap: 12, paddingBottom: 12 }}
         renderItem={({ item }) => (
           <Link href={`/exam/${item.mode}`} asChild>
-            <Pressable style={styles.card}>
+            <Pressable style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}>
               <Text style={styles.numeral}>{item.numeral}</Text>
               <View style={styles.cardBody}>
                 <View style={styles.cardHeader}>
@@ -132,6 +139,7 @@ const styles = StyleSheet.create({
     flexDirection: "row", gap: 14, borderWidth: 1, borderColor: theme.border,
     backgroundColor: theme.card, borderRadius: 12, padding: 16,
   },
+  cardPressed: { transform: [{ scale: 0.98 }], borderColor: theme.brass },
   numeral: {
     fontFamily: theme.fontDisplayBold, fontSize: 20, color: theme.brass,
     width: 44, textAlign: "center", paddingTop: 2,

@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Stack, useLocalSearchParams, useNavigation } from "expo-router";
 import { useKeepAwake } from "expo-keep-awake";
+import * as Haptics from "expo-haptics";
 import { useExamOrchestrator } from "@/src/hooks/use-exam-orchestrator";
 import { Preflight } from "@/src/components/preflight";
 import { CueCard } from "@/src/components/cue-card";
@@ -28,6 +29,15 @@ export default function ExamScreen() {
   const navigation = useNavigation();
 
   const midExam = exam.screen === "exam" && exam.phase !== "ended" && exam.phase !== "connecting";
+  const prevSpeakingRef = useRef(false);
+
+  // A gentle tap when Alex yields the floor — eyes-free turn-taking.
+  useEffect(() => {
+    if (prevSpeakingRef.current && !exam.examinerSpeaking && midExam && exam.liveStatus === "live") {
+      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+    }
+    prevSpeakingRef.current = exam.examinerSpeaking;
+  }, [exam.examinerSpeaking, exam.liveStatus, midExam]);
 
   function confirmEndExam() {
     Alert.alert("End the exam now?", "Completed parts will still be scored.", [
