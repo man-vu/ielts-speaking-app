@@ -39,8 +39,8 @@ describe("speechMetrics", () => {
   it("counts words, fillers, and computes wpm", () => {
     const m = speechMetrics("Um I think uh it is er very nice hmm", 30);
     expect(m.fillers).toBe(4);
-    expect(m.words).toBe(9);
-    expect(m.wpm).toBe(18);
+    expect(m.words).toBe(10);
+    expect(m.wpm).toBe(20);
   });
 
   it("does not count 'summer' or 'her' as fillers", () => {
