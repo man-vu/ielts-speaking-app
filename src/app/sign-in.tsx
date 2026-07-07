@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { router } from "expo-router";
 import {
-  KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput,
+  KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View,
 } from "react-native";
 import { supabase } from "@/src/lib/supabase";
+import { overline, theme } from "@/src/lib/theme";
 
 export default function SignIn() {
   const [email, setEmail] = useState("");
@@ -25,14 +26,20 @@ export default function SignIn() {
       behavior={Platform.OS === "ios" ? "padding" : undefined}
       style={styles.container}
     >
-      <Text style={styles.title}>Sign in</Text>
-      <Text style={styles.subtitle}>Use your IELTS Pro account.</Text>
+      <View style={styles.masthead}>
+        <Text style={overline}>The Speaking Test</Text>
+        <Text style={styles.wordmark}>IELTS Speaking</Text>
+        <View style={styles.rule} />
+      </View>
+      <Text style={styles.subtitle}>Sign in with your IELTS Pro account.</Text>
       <TextInput
         style={styles.input} placeholder="Email" autoCapitalize="none"
+        placeholderTextColor={theme.inkMuted}
         keyboardType="email-address" value={email} onChangeText={setEmail}
       />
       <TextInput
         style={styles.input} placeholder="Password" secureTextEntry
+        placeholderTextColor={theme.inkMuted}
         value={password} onChangeText={setPassword}
       />
       <Pressable style={styles.button} onPress={() => void signIn()} disabled={busy}>
@@ -44,14 +51,18 @@ export default function SignIn() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: "center", padding: 24, gap: 12, backgroundColor: "#0f172a" },
-  title: { fontSize: 28, fontWeight: "600", color: "#f1f5f9" },
-  subtitle: { color: "#94a3b8", marginBottom: 8 },
+  container: { flex: 1, justifyContent: "center", padding: 28, gap: 13, backgroundColor: theme.bg },
+  masthead: { gap: 8, marginBottom: 10 },
+  wordmark: { fontFamily: theme.fontDisplayBold, fontSize: 34, color: theme.ink },
+  rule: { height: 1, backgroundColor: theme.border, marginTop: 4 },
+  subtitle: { color: theme.inkSecondary, marginBottom: 6, fontSize: 14.5 },
   input: {
-    borderWidth: 1, borderColor: "#334155", borderRadius: 8, padding: 12,
-    color: "#f1f5f9", backgroundColor: "#1e293b",
+    borderWidth: 1, borderColor: theme.border, borderRadius: 10, padding: 13,
+    color: theme.ink, backgroundColor: theme.card, fontSize: 15,
   },
-  button: { backgroundColor: "#4f46e5", borderRadius: 8, padding: 14, alignItems: "center" },
-  buttonText: { color: "#fff", fontWeight: "600" },
-  error: { color: "#f87171" },
+  button: {
+    backgroundColor: theme.brass, borderRadius: 10, padding: 15, alignItems: "center", marginTop: 4,
+  },
+  buttonText: { fontFamily: theme.fontDisplay, color: theme.bg, fontSize: 16 },
+  error: { color: theme.stampRed, fontSize: 13.5, lineHeight: 19 },
 });

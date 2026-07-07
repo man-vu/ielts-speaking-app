@@ -4,6 +4,7 @@ import { Stack, useLocalSearchParams } from "expo-router";
 import { setAudioModeAsync, useAudioPlayer } from "expo-audio";
 import { apiFetch } from "@/src/lib/api";
 import type { ReportPayload } from "@/src/lib/types";
+import { overline, theme } from "@/src/lib/theme";
 
 const AUTO_RESCORE_DELAY_MS = 20_000;
 
@@ -132,8 +133,10 @@ export default function ReportScreen() {
     <ScrollView contentContainerStyle={styles.container}>
       <Stack.Screen options={{ title: "Your report" }} />
       <View style={styles.hero}>
-        <Text style={styles.heroLabel}>Overall band</Text>
-        <Text style={styles.heroBand}>{r.band_scores.overall.toFixed(1)}</Text>
+        <View style={styles.stamp}>
+          <Text style={[overline, styles.stampLabel]}>Overall band</Text>
+          <Text style={styles.heroBand}>{r.band_scores.overall.toFixed(1)}</Text>
+        </View>
         <Text style={styles.note}>{r.examiner_note}</Text>
       </View>
       {CRITERIA.map(({ key, label }) => (
@@ -185,24 +188,44 @@ export default function ReportScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { padding: 16, gap: 12 },
-  center: { flex: 1, justifyContent: "center", alignItems: "center", padding: 24, gap: 8 },
-  hero: { backgroundColor: "#312e8155", borderRadius: 16, padding: 24, alignItems: "center", gap: 6 },
-  heroLabel: { color: "#a5b4fc", textTransform: "uppercase", fontSize: 12, letterSpacing: 1 },
-  heroBand: { color: "#f1f5f9", fontSize: 56, fontWeight: "700" },
-  note: { color: "#cbd5e1", textAlign: "center" },
-  card: { borderWidth: 1, borderColor: "#334155", borderRadius: 12, padding: 14, gap: 8 },
+  container: { padding: 20, gap: 14 },
+  center: { flex: 1, justifyContent: "center", alignItems: "center", padding: 28, gap: 10 },
+  hero: { alignItems: "center", gap: 16, paddingVertical: 14 },
+  stamp: {
+    alignItems: "center", gap: 2, paddingVertical: 18, paddingHorizontal: 34,
+    borderWidth: 2, borderColor: theme.brass, borderRadius: 8,
+    transform: [{ rotate: "-1.5deg" }],
+  },
+  stampLabel: { color: theme.brass },
+  heroBand: {
+    fontFamily: theme.fontDisplayBold, color: theme.ink, fontSize: 62, lineHeight: 68,
+    fontVariant: ["tabular-nums"],
+  },
+  note: { color: theme.inkSecondary, textAlign: "center", fontSize: 14.5, lineHeight: 21 },
+  card: {
+    borderWidth: 1, borderColor: theme.border, backgroundColor: theme.card,
+    borderRadius: 12, padding: 16, gap: 8,
+  },
   cardHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "baseline" },
-  cardTitle: { color: "#f1f5f9", fontWeight: "600" },
-  band: { color: "#818cf8", fontSize: 20, fontWeight: "700" },
-  muted: { color: "#94a3b8", fontSize: 13, lineHeight: 19 },
-  hint: { color: "#64748b", fontSize: 12 },
-  error: { color: "#f87171" },
-  errorItem: { gap: 2, marginTop: 6 },
-  errorHead: { color: "#fca5a5", fontWeight: "600", fontSize: 13 },
-  fix: { color: "#6ee7b7", fontSize: 13 },
-  playButton: { backgroundColor: "#4f46e522", borderRadius: 8, padding: 10, alignItems: "center" },
-  playText: { color: "#818cf8" },
-  button: { backgroundColor: "#4f46e5", borderRadius: 8, padding: 14, alignItems: "center", marginTop: 12 },
-  buttonText: { color: "#fff", fontWeight: "600" },
+  cardTitle: { fontFamily: theme.fontDisplay, color: theme.ink, fontSize: 16 },
+  band: {
+    fontFamily: theme.fontMonoBold, color: theme.brass, fontSize: 21,
+    fontVariant: ["tabular-nums"],
+  },
+  muted: { color: theme.inkSecondary, fontSize: 13.5, lineHeight: 20 },
+  hint: { color: theme.inkMuted, fontSize: 12 },
+  error: { color: theme.stampRed, fontSize: 13 },
+  errorItem: { gap: 2, marginTop: 8 },
+  errorHead: { color: theme.stampRed, fontFamily: theme.fontDisplay, fontSize: 13.5 },
+  fix: { color: theme.live, fontSize: 13.5 },
+  playButton: {
+    backgroundColor: theme.cardRaised, borderWidth: 1, borderColor: theme.borderSoft,
+    borderRadius: 8, padding: 11, alignItems: "center",
+  },
+  playText: { color: theme.info, fontSize: 13.5 },
+  button: {
+    backgroundColor: theme.cardRaised, borderWidth: 1, borderColor: theme.brass,
+    borderRadius: 10, paddingVertical: 13, paddingHorizontal: 26, alignItems: "center", marginTop: 12,
+  },
+  buttonText: { fontFamily: theme.fontDisplay, color: theme.ink, fontSize: 15 },
 });

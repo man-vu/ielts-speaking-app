@@ -1,12 +1,15 @@
 import { useEffect, useState } from "react";
-import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Stack, useLocalSearchParams, useNavigation } from "expo-router";
 import { useKeepAwake } from "expo-keep-awake";
 import { useExamOrchestrator } from "@/src/hooks/use-exam-orchestrator";
 import { Preflight } from "@/src/components/preflight";
 import { CueCard } from "@/src/components/cue-card";
+import { NotesPad } from "@/src/components/notes-pad";
+import { VoiceIndicator } from "@/src/components/voice-indicator";
 import type { ExamPhase } from "@/src/lib/exam/machine";
 import type { SimMode } from "@/src/lib/types";
+import { overline, theme } from "@/src/lib/theme";
 
 const PHASE_LABELS: Record<ExamPhase, string> = {
   connecting: "Connecting…", intro: "Introduction", part1: "Part 1",
@@ -21,6 +24,7 @@ export default function ExamScreen() {
   const mode = (MODES.includes(params.mode as SimMode) ? params.mode : "part1") as SimMode;
   const exam = useExamOrchestrator(mode);
   const [retrying, setRetrying] = useState(false);
+  const [notes, setNotes] = useState("");
   const navigation = useNavigation();
 
   const midExam = exam.screen === "exam" && exam.phase !== "ended" && exam.phase !== "connecting";
@@ -62,7 +66,9 @@ export default function ExamScreen() {
       <View style={styles.center}>
         <Stack.Screen options={{ title: PHASE_LABELS[exam.phase] }} />
         <Text style={styles.status}>
-          {exam.screen === "uploading" ? "Uploading your answers for scoring…" : exam.banner || "Something went wrong."}
+          {exam.screen === "uploading"
+            ? "Sealing your answers for marking…"
+            : exam.banner || "Something went wrong."}
         </Text>
         {exam.screen === "upload_failed" && (
           <Pressable
@@ -81,12 +87,12 @@ export default function ExamScreen() {
     );
   }
 
-  const showCueCard =
-    (exam.phase === "part2_prep" || exam.phase === "part2_talk" || exam.phase === "part2_rounding") &&
-    exam.display?.cueCard;
+  const inPart2 =
+    exam.phase === "part2_prep" || exam.phase === "part2_talk" || exam.phase === "part2_rounding";
+  const showCueCard = inPart2 && exam.display?.cueCard;
 
   return (
-    <View style={styles.container}>
+    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Stack.Screen
         options={{
           title: PHASE_LABELS[exam.phase],
@@ -98,37 +104,61 @@ export default function ExamScreen() {
             ) : null,
         }}
       />
+
       {exam.banner ? <Text style={styles.banner}>{exam.banner}</Text> : null}
+
+      {exam.phase === "part2_talk" && exam.countdown !== null && (
+        <View style={styles.talkTimerRow}>
+          <Text style={overline}>Speaking time</Text>
+          <Text style={styles.talkTimer}>
+            {Math.floor(exam.countdown / 60)}:{String(exam.countdown % 60).padStart(2, "0")}
+          </Text>
+        </View>
+      )}
+
       {showCueCard && exam.display?.cueCard ? (
         <CueCard
           text={exam.display.cueCard}
           secondsLeft={exam.phase === "part2_prep" ? exam.countdown : null}
         />
       ) : null}
-      {exam.phase === "part2_talk" && exam.countdown !== null && (
-        <Text style={styles.talkTimer}>{exam.countdown}s</Text>
-      )}
+
+      {inPart2 && (exam.phase === "part2_prep" || notes.length > 0) ? (
+        <NotesPad value={notes} onChange={setNotes} editable={exam.phase === "part2_prep"} />
+      ) : null}
+
       {exam.phase !== "part2_prep" && (
-        <View style={styles.center}>
-          <View style={[styles.orb, exam.liveStatus === "live" && styles.orbLive]} />
-          <Text style={styles.status}>
-            {exam.phase === "connecting" ? "Connecting to your examiner…" : "The examiner is listening."}
-          </Text>
+        <View style={styles.stageWrap}>
+          <VoiceIndicator
+            connecting={exam.phase === "connecting" || exam.liveStatus !== "live"}
+            examinerSpeaking={exam.examinerSpeaking}
+            micLevel={exam.micLevel}
+          />
         </View>
       )}
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, gap: 16 },
-  center: { flex: 1, justifyContent: "center", alignItems: "center", gap: 16, padding: 24 },
-  status: { color: "#94a3b8", textAlign: "center" },
-  banner: { color: "#fcd34d", backgroundColor: "#45309e22", padding: 10, borderRadius: 8 },
-  talkTimer: { color: "#34d399", fontSize: 22, textAlign: "center", fontVariant: ["tabular-nums"] },
-  orb: { width: 72, height: 72, borderRadius: 36, backgroundColor: "#4f46e544" },
-  orbLive: { backgroundColor: "#4f46e5" },
-  button: { backgroundColor: "#4f46e5", borderRadius: 8, padding: 14, alignItems: "center", marginTop: 12 },
-  buttonText: { color: "#fff", fontWeight: "600" },
-  endLink: { color: "#f87171", fontWeight: "600" },
+  container: { flex: 1 },
+  content: { padding: 20, gap: 20, flexGrow: 1 },
+  center: { flex: 1, justifyContent: "center", alignItems: "center", gap: 16, padding: 28 },
+  status: { color: theme.inkSecondary, textAlign: "center", fontSize: 15.5, lineHeight: 22 },
+  banner: {
+    color: theme.brass, backgroundColor: theme.card, borderWidth: 1,
+    borderColor: theme.borderSoft, padding: 12, borderRadius: 10, fontSize: 13.5, lineHeight: 19,
+  },
+  talkTimerRow: { alignItems: "center", gap: 4 },
+  talkTimer: {
+    fontFamily: theme.fontMonoBold, fontSize: 34, color: theme.live,
+    fontVariant: ["tabular-nums"],
+  },
+  stageWrap: { flex: 1, justifyContent: "center", paddingVertical: 24 },
+  button: {
+    backgroundColor: theme.cardRaised, borderWidth: 1, borderColor: theme.brass,
+    borderRadius: 10, paddingVertical: 14, paddingHorizontal: 28, alignItems: "center",
+  },
+  buttonText: { fontFamily: theme.fontDisplay, color: theme.ink, fontSize: 15 },
+  endLink: { color: theme.stampRed, fontFamily: theme.fontDisplay, fontSize: 15 },
 });

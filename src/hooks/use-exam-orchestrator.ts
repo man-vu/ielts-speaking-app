@@ -26,6 +26,8 @@ export function useExamOrchestrator(mode: SimMode): {
   countdown: number | null;
   display: ExamDisplayData | null;
   liveStatus: LiveStatus;
+  micLevel: number;
+  examinerSpeaking: boolean;
   begin(): Promise<void>;
   endEarly(): void;
   retryUpload(): Promise<void>;
@@ -113,9 +115,32 @@ export function useExamOrchestrator(mode: SimMode): {
   // (spurious interruptions) or contaminate the scored WAV.
   const onChunk = useCallback((pcm: Int16Array) => {
     if (liveRef.current.isExaminerSpeaking()) return;
+    // Coarse RMS (every 8th sample) drives the on-screen mic meter.
+    let sum = 0;
+    for (let i = 0; i < pcm.length; i += 8) {
+      const v = pcm[i] / 0x8000;
+      sum += v * v;
+    }
+    micLevelRef.current = Math.min(1, Math.sqrt(sum / (pcm.length / 8)) * 4);
     liveRef.current.sendAudioChunk(pcm);
     if (currentPartRef.current) getAccumulator().add(currentPartRef.current, pcm);
   }, []);
+
+  // Publish voice state (mic level + examiner-speaking) at UI cadence —
+  // refs absorb the 10 Hz audio callbacks; renders happen ~5x/s.
+  const micLevelRef = useRef(0);
+  const [voice, setVoice] = useState({ micLevel: 0, examinerSpeaking: false });
+  useEffect(() => {
+    if (screen !== "exam") return;
+    const interval = setInterval(() => {
+      setVoice({
+        micLevel: micLevelRef.current,
+        examinerSpeaking: liveRef.current.isExaminerSpeaking(),
+      });
+      micLevelRef.current *= 0.55; // decay so the meter falls in silence
+    }, 180);
+    return () => clearInterval(interval);
+  }, [screen]);
 
   // Unmount safety net: nothing should stay hot (open connection, running
   // mic, active audio session, interruption subscription) after the hook is
@@ -440,6 +465,8 @@ export function useExamOrchestrator(mode: SimMode): {
     countdown,
     display: session?.display ?? null,
     liveStatus: live.status,
+    micLevel: voice.micLevel,
+    examinerSpeaking: voice.examinerSpeaking,
     begin,
     endEarly,
     retryUpload: uploadRecordings,

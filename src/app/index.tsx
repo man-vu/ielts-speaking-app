@@ -1,15 +1,34 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 import { Link, Stack, useFocusEffect } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { supabase } from "@/src/lib/supabase";
 import { SIM_MONTHLY_UNITS, UNIT_COSTS } from "@/src/lib/config";
 import type { SimMode } from "@/src/lib/types";
+import { ONBOARDING_KEY, Onboarding } from "@/src/components/onboarding";
+import { overline, theme } from "@/src/lib/theme";
 
-const MODES: { mode: SimMode; title: string; blurb: string }[] = [
-  { mode: "full", title: "Full exam", blurb: "Parts 1–3, 11–14 minutes, complete band report" },
-  { mode: "part1", title: "Part 1 practice", blurb: "Interview questions on familiar topics" },
-  { mode: "part2", title: "Part 2 practice", blurb: "Cue card, 1 min prep, 2 min talk" },
-  { mode: "part3", title: "Part 3 practice", blurb: "Abstract discussion questions" },
+const MODES: { mode: SimMode; numeral: string; title: string; blurb: string; tip: string }[] = [
+  {
+    mode: "full", numeral: "I–III", title: "Full exam",
+    blurb: "Parts 1–3 · 11–14 minutes · complete band report",
+    tip: "Treat it like the real thing — quiet room, full sentences.",
+  },
+  {
+    mode: "part1", numeral: "I", title: "Part 1 practice",
+    blurb: "Interview questions on familiar topics",
+    tip: "Aim for 2–4 sentences per answer, not one-liners.",
+  },
+  {
+    mode: "part2", numeral: "II", title: "Part 2 practice",
+    blurb: "Cue card · 1 min prep · 2 min talk",
+    tip: "Use the notes pad — cover every bullet on the card.",
+  },
+  {
+    mode: "part3", numeral: "III", title: "Part 3 practice",
+    blurb: "Abstract discussion questions",
+    tip: "Give opinions with reasons — 'because' is your friend.",
+  },
 ];
 
 function currentMonthStart(): string {
@@ -19,6 +38,13 @@ function currentMonthStart(): string {
 
 export default function Home() {
   const [unitsLine, setUnitsLine] = useState("");
+  const [showOnboarding, setShowOnboarding] = useState(false);
+
+  useEffect(() => {
+    void AsyncStorage.getItem(ONBOARDING_KEY).then((done) => {
+      if (!done) setShowOnboarding(true);
+    });
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
@@ -45,25 +71,42 @@ export default function Home() {
 
   return (
     <View style={styles.container}>
-      <Stack.Screen options={{ title: "IELTS Speaking" }} />
-      <View style={styles.topRow}>
-        <Text style={styles.units}>{unitsLine}</Text>
-        <Link href="/history" style={styles.link}>History</Link>
+      <Stack.Screen options={{ title: "", headerShown: false }} />
+      <Onboarding visible={showOnboarding} onDone={() => setShowOnboarding(false)} />
+
+      <View style={styles.masthead}>
+        <Text style={overline}>The Speaking Test</Text>
+        <Text style={styles.wordmark}>IELTS Speaking</Text>
+        <View style={styles.mastheadRule} />
+        <View style={styles.topRow}>
+          <Text style={styles.units}>{unitsLine}</Text>
+          <View style={styles.topLinks}>
+            <Pressable onPress={() => setShowOnboarding(true)}>
+              <Text style={styles.link}>How it works</Text>
+            </Pressable>
+            <Link href="/history" style={styles.link}>History</Link>
+          </View>
+        </View>
       </View>
+
       <FlatList
         data={MODES}
         keyExtractor={(m) => m.mode}
-        contentContainerStyle={{ gap: 12 }}
+        contentContainerStyle={{ gap: 12, paddingBottom: 12 }}
         renderItem={({ item }) => (
           <Link href={`/exam/${item.mode}`} asChild>
             <Pressable style={styles.card}>
-              <View style={styles.cardHeader}>
-                <Text style={styles.cardTitle}>{item.title}</Text>
-                <Text style={styles.cost}>
-                  {UNIT_COSTS[item.mode]} unit{UNIT_COSTS[item.mode] > 1 ? "s" : ""}
-                </Text>
+              <Text style={styles.numeral}>{item.numeral}</Text>
+              <View style={styles.cardBody}>
+                <View style={styles.cardHeader}>
+                  <Text style={styles.cardTitle}>{item.title}</Text>
+                  <Text style={styles.cost}>
+                    {UNIT_COSTS[item.mode]} unit{UNIT_COSTS[item.mode] > 1 ? "s" : ""}
+                  </Text>
+                </View>
+                <Text style={styles.blurb}>{item.blurb}</Text>
+                <Text style={styles.tip}>{item.tip}</Text>
               </View>
-              <Text style={styles.blurb}>{item.blurb}</Text>
             </Pressable>
           </Link>
         )}
@@ -76,14 +119,27 @@ export default function Home() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, gap: 16 },
-  topRow: { flexDirection: "row", justifyContent: "space-between" },
-  units: { color: "#34d399" },
-  link: { color: "#818cf8" },
-  card: { borderWidth: 1, borderColor: "#334155", borderRadius: 12, padding: 16, gap: 6 },
+  container: { flex: 1, padding: 20, paddingTop: 72, gap: 20 },
+  masthead: { gap: 8 },
+  wordmark: { fontFamily: theme.fontDisplayBold, fontSize: 34, color: theme.ink },
+  mastheadRule: { height: 1, backgroundColor: theme.border, marginVertical: 6 },
+  topRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  topLinks: { flexDirection: "row", gap: 18 },
+  units: { color: theme.brass, fontSize: 13 },
+  link: { color: theme.info, fontSize: 13 },
+  card: {
+    flexDirection: "row", gap: 14, borderWidth: 1, borderColor: theme.border,
+    backgroundColor: theme.card, borderRadius: 12, padding: 16,
+  },
+  numeral: {
+    fontFamily: theme.fontDisplayBold, fontSize: 20, color: theme.brass,
+    width: 44, textAlign: "center", paddingTop: 2,
+  },
+  cardBody: { flex: 1, gap: 5 },
   cardHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "baseline" },
-  cardTitle: { color: "#f1f5f9", fontSize: 17, fontWeight: "600" },
-  cost: { color: "#64748b", fontSize: 12 },
-  blurb: { color: "#94a3b8", fontSize: 13 },
-  signOut: { color: "#64748b", textAlign: "center", padding: 8 },
+  cardTitle: { fontFamily: theme.fontDisplay, color: theme.ink, fontSize: 18 },
+  cost: { fontFamily: theme.fontMono, color: theme.inkMuted, fontSize: 11 },
+  blurb: { color: theme.inkSecondary, fontSize: 13.5, lineHeight: 19 },
+  tip: { color: theme.inkMuted, fontSize: 12.5, lineHeight: 18, fontStyle: "italic" },
+  signOut: { color: theme.inkMuted, textAlign: "center", padding: 8, fontSize: 13 },
 });

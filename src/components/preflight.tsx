@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { requestMicPermission } from "@/src/lib/audio/session";
+import { overline, theme } from "@/src/lib/theme";
 
 export function Preflight({ onReady }: { onReady(): void }) {
   const [granted, setGranted] = useState(false);
@@ -19,12 +20,13 @@ export function Preflight({ onReady }: { onReady(): void }) {
 
   return (
     <View style={styles.container}>
+      <Text style={overline}>Before you begin</Text>
       <Text style={styles.title}>Equipment check</Text>
       <Text style={styles.copy}>
-        The examiner speaks and listens in real time. Headphones are strongly
-        recommended: they stop the examiner's voice from leaking into your
-        recording and affecting your score. Your quota is only used once you
-        begin.
+        The examiner speaks and listens in real time. Headphones give the
+        cleanest ear, though speaker works too — your microphone pauses
+        automatically while the examiner talks. Your quota is only used once
+        you begin.
       </Text>
       {!granted ? (
         <Pressable style={styles.button} onPress={() => void request()}>
@@ -40,7 +42,9 @@ export function Preflight({ onReady }: { onReady(): void }) {
           }}
           disabled={starting}
         >
-          <Text style={styles.buttonText}>{starting ? "Starting…" : "Begin exam"}</Text>
+          <Text style={[styles.buttonText, styles.beginText]}>
+            {starting ? "Starting…" : "Begin exam"}
+          </Text>
         </Pressable>
       )}
       {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -49,11 +53,17 @@ export function Preflight({ onReady }: { onReady(): void }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: "center", padding: 24, gap: 16 },
-  title: { fontSize: 24, fontWeight: "600", color: "#f1f5f9", textAlign: "center" },
-  copy: { color: "#94a3b8", textAlign: "center", lineHeight: 20 },
-  button: { backgroundColor: "#4f46e5", borderRadius: 8, padding: 14, alignItems: "center" },
-  begin: { backgroundColor: "#059669" },
-  buttonText: { color: "#fff", fontWeight: "600" },
-  error: { color: "#f87171", textAlign: "center" },
+  container: { flex: 1, justifyContent: "center", padding: 28, gap: 14 },
+  title: {
+    fontFamily: theme.fontDisplayBold, fontSize: 30, color: theme.ink, lineHeight: 36,
+  },
+  copy: { color: theme.inkSecondary, fontSize: 15.5, lineHeight: 24, marginBottom: 10 },
+  button: {
+    backgroundColor: theme.cardRaised, borderWidth: 1, borderColor: theme.brass,
+    borderRadius: 10, padding: 15, alignItems: "center",
+  },
+  begin: { backgroundColor: theme.brass },
+  buttonText: { fontFamily: theme.fontDisplay, color: theme.ink, fontSize: 16 },
+  beginText: { color: theme.bg },
+  error: { color: theme.stampRed, fontSize: 13.5, lineHeight: 19 },
 });
