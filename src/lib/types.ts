@@ -35,9 +35,11 @@ export interface ReportPayload {
     priority_errors: {
       part: number; rank: number; error_type: string; description: string;
       criterion_impact: string; correction: string;
+      /** Verbatim transcript substring for inline highlighting (newer reports only). */
+      quote?: string;
     }[];
     drill_queue: { drill_name: string; target_error: string; instruction: string }[];
     examiner_note: string;
   } | null;
-  audio: { part: number; url: string }[];
+  audio: { part: number; url: string; duration?: number }[];
 }

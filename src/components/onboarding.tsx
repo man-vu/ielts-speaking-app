@@ -10,9 +10,9 @@ export const ONBOARDING_KEY = "onboarding-v1-done";
 const PANELS: { title: string; body: string; glyph: string }[] = [
   {
     glyph: "I.",
-    title: "A real examiner, in real time",
+    title: "Meet Alex, your examiner",
     body:
-      "You'll speak with an AI examiner who follows the official IELTS Speaking format — greeting, questions, follow-ups. Answer naturally, out loud, in full sentences. Pauses to think are fine; the examiner waits.",
+      "Alex conducts your exam in real time, following the official IELTS Speaking format — greeting, questions, follow-ups. Answer naturally, out loud, in full sentences. Pauses to think are fine; Alex waits.",
   },
   {
     glyph: "II.",

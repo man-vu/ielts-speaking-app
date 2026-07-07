@@ -84,6 +84,7 @@ export default function Home() {
             <Pressable onPress={() => setShowOnboarding(true)}>
               <Text style={styles.link}>How it works</Text>
             </Pressable>
+            <Link href="/drills" style={styles.link}>Drills</Link>
             <Link href="/history" style={styles.link}>History</Link>
           </View>
         </View>

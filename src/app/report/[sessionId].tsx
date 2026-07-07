@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, Pressable, ScrollView, Share, StyleSheet, Text, View } from "react-native";
 import { Stack, useLocalSearchParams } from "expo-router";
 import { setAudioModeAsync, useAudioPlayer } from "expo-audio";
 import { apiFetch } from "@/src/lib/api";
+import { segmentTranscript, speechMetrics } from "@/src/lib/report-insights";
 import type { ReportPayload } from "@/src/lib/types";
 import { overline, theme } from "@/src/lib/theme";
 
@@ -138,6 +139,23 @@ export default function ReportScreen() {
           <Text style={styles.heroBand}>{r.band_scores.overall.toFixed(1)}</Text>
         </View>
         <Text style={styles.note}>{r.examiner_note}</Text>
+        <Pressable
+          style={styles.shareButton}
+          onPress={() => {
+            void (async () => {
+              try {
+                const res = await apiFetch(`/api/sessions/${sessionId}/share-link`, { method: "GET" });
+                const body = (await res.json()) as { url?: string; error?: string };
+                if (!res.ok || !body.url) throw new Error(body.error ?? `HTTP ${res.status}`);
+                await Share.share({ message: `My IELTS Speaking practice report: ${body.url}` });
+              } catch (e) {
+                Alert.alert("Could not create share link", e instanceof Error ? e.message : "");
+              }
+            })();
+          }}
+        >
+          <Text style={styles.shareText}>Share with a teacher</Text>
+        </Pressable>
       </View>
       {CRITERIA.map(({ key, label }) => (
         <View key={key} style={styles.card}>
@@ -175,11 +193,47 @@ export default function ReportScreen() {
       )}
       {r.per_part.map((p) => {
         const rec = payload.audio.find((a) => a.part === p.part);
+        const metrics = speechMetrics(p.transcript, rec?.duration);
+        const segments = segmentTranscript(
+          p.transcript,
+          r.priority_errors.filter((e) => e.part === p.part)
+        );
         return (
           <View key={p.part} style={styles.card}>
             <Text style={styles.cardTitle}>Part {p.part} — band {p.band_scores.overall.toFixed(1)}</Text>
+            <View style={styles.metricsRow}>
+              {metrics.wpm !== null && (
+                <Text style={styles.metric}>{metrics.wpm} wpm</Text>
+              )}
+              <Text style={styles.metric}>{metrics.words} words</Text>
+              <Text style={[styles.metric, metrics.fillers > 3 && styles.metricWarn]}>
+                {metrics.fillers} filler{metrics.fillers === 1 ? "" : "s"}
+              </Text>
+            </View>
             {rec && <AudioButton url={rec.url} />}
-            <Text style={styles.muted}>{p.transcript}</Text>
+            <Text style={styles.muted}>
+              {segments.map((seg, i) =>
+                seg.error ? (
+                  <Text
+                    key={i}
+                    style={seg.error.rank <= 2 ? styles.errorSpanHigh : styles.errorSpanMid}
+                    onPress={() =>
+                      Alert.alert(
+                        `${seg.error!.error_type} — priority #${seg.error!.rank}`,
+                        `${seg.error!.description}\n\n✓ ${seg.error!.correction}`
+                      )
+                    }
+                  >
+                    {seg.text}
+                  </Text>
+                ) : (
+                  <Text key={i}>{seg.text}</Text>
+                )
+              )}
+            </Text>
+            {segments.some((s) => s.error) && (
+              <Text style={styles.hint}>Tap a highlighted phrase to see the fix.</Text>
+            )}
           </View>
         );
       })}
@@ -223,6 +277,26 @@ const styles = StyleSheet.create({
     borderRadius: 8, padding: 11, alignItems: "center",
   },
   playText: { color: theme.info, fontSize: 13.5 },
+  shareButton: {
+    borderWidth: 1, borderColor: theme.borderSoft, borderRadius: 8,
+    paddingVertical: 9, paddingHorizontal: 20,
+  },
+  shareText: { color: theme.info, fontSize: 13.5 },
+  metricsRow: { flexDirection: "row", gap: 8 },
+  metric: {
+    fontFamily: theme.fontMono, fontSize: 11.5, color: theme.inkSecondary,
+    backgroundColor: theme.cardRaised, borderRadius: 6,
+    paddingVertical: 4, paddingHorizontal: 9, overflow: "hidden",
+  },
+  metricWarn: { color: theme.stampRed },
+  errorSpanHigh: {
+    color: theme.stampRed, textDecorationLine: "underline",
+    textDecorationColor: theme.stampRed,
+  },
+  errorSpanMid: {
+    color: theme.brass, textDecorationLine: "underline",
+    textDecorationColor: theme.brass,
+  },
   button: {
     backgroundColor: theme.cardRaised, borderWidth: 1, borderColor: theme.brass,
     borderRadius: 10, paddingVertical: 13, paddingHorizontal: 26, alignItems: "center", marginTop: 12,

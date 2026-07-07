@@ -34,9 +34,9 @@ export function VoiceIndicator({ connecting, examinerSpeaking, micLevel }: Voice
   const ringOpacity = breath.interpolate({ inputRange: [0, 1], outputRange: [0.5, 0.08] });
 
   const label = connecting
-    ? "Finding your examiner…"
+    ? "Finding Alex, your examiner…"
     : examinerSpeaking
-      ? "Examiner speaking"
+      ? "Alex is speaking"
       : "Your turn — mic is live";
 
   // Five bars with fixed multipliers give the meter a natural silhouette.
@@ -57,7 +57,7 @@ export function VoiceIndicator({ connecting, examinerSpeaking, micLevel }: Voice
               ]}
             />
             <View style={styles.disc}>
-              <Text style={styles.discGlyph}>E</Text>
+              <Text style={styles.discGlyph}>A</Text>
             </View>
           </View>
         ) : (
