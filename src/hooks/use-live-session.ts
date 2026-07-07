@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { GoogleGenAI, Modality, type Session } from "@google/genai";
+// "@google/genai/web": Metro resolves the bare package to a cross-platform
+// stub whose Live API throws on React Native; the web build (WebSocket,
+// fetch, atob — all present in Hermes) is the supported client path.
+import { GoogleGenAI, Modality, type Session } from "@google/genai/web";
 import { int16ToBase64 } from "@/src/lib/audio/pcm";
 import { Pcm24kPlayer } from "@/src/lib/audio/player";
 
