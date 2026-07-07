@@ -8,6 +8,7 @@ import * as Haptics from "expo-haptics";
 import { AudioScrubber } from "@/src/components/audio-scrubber";
 import { apiFetch } from "@/src/lib/api";
 import { segmentTranscript, speechMetrics } from "@/src/lib/report-insights";
+import { track } from "@/src/lib/telemetry";
 import type { ReportPayload } from "@/src/lib/types";
 import { overline, theme } from "@/src/lib/theme";
 
@@ -35,6 +36,7 @@ export default function ReportScreen() {
   useEffect(() => {
     if (payload?.status !== "scored" || !payload.report || stampedRef.current) return;
     stampedRef.current = true;
+    track("report_viewed", { band: payload.report.band_scores.overall });
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     Animated.spring(stampAnim, {
       toValue: 1, useNativeDriver: true, damping: 14, stiffness: 240, mass: 0.9,
@@ -166,6 +168,7 @@ export default function ReportScreen() {
                 const res = await apiFetch(`/api/sessions/${sessionId}/share-link`, { method: "GET" });
                 const body = (await res.json()) as { url?: string; error?: string };
                 if (!res.ok || !body.url) throw new Error(body.error ?? `HTTP ${res.status}`);
+                track("share_created", {});
                 await Share.share({ message: `My IELTS Speaking practice report: ${body.url}` });
               } catch (e) {
                 Alert.alert("Could not create share link", e instanceof Error ? e.message : "");

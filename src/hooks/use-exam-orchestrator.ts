@@ -14,6 +14,7 @@ import {
   configureExamAudioSession, deactivateAudioSession, requestMicPermission,
 } from "@/src/lib/audio/session";
 import { apiFetch } from "@/src/lib/api";
+import { reportError, track } from "@/src/lib/telemetry";
 import { useLiveSession, type LiveStatus } from "./use-live-session";
 import { useMicStream } from "./use-mic-stream";
 
@@ -175,6 +176,7 @@ export function useExamOrchestrator(mode: SimMode): {
       });
       const body = (await res.json()) as TokenResponse & { error?: string };
       if (!res.ok) throw new Error(body.error ?? `HTTP ${res.status}`);
+      track("exam_started", { mode });
       // Bail if the exam was force-ended while the token fetch was in flight
       // — otherwise a hot mic/session resurrects behind the fatal/ended screen.
       if (endedRef.current) {
@@ -340,9 +342,12 @@ export function useExamOrchestrator(mode: SimMode): {
       // session (e.g. our fetch timed out but the upload/score actually
       // finished) — both land on the report screen, which handles the rest.
       if (res.ok || res.status === 503 || res.status === 409) {
+        track("exam_completed", { mode, parts: parts.length });
         router.replace(`/report/${session.sessionId}`);
         return;
       }
+      track("upload_failed", { mode, status: res.status });
+      reportError(new Error(`score registration HTTP ${res.status}`), { mode });
       setBanner("Upload failed. Your recordings are kept on this page — try again.");
       setScreen("upload_failed");
     } catch {
@@ -353,9 +358,11 @@ export function useExamOrchestrator(mode: SimMode): {
         .then((r) => (r.ok ? (r.json() as Promise<ReportPayload>) : null))
         .catch(() => null);
       if (probe && (probe.status === "scored" || probe.status === "completed")) {
+        track("exam_completed", { mode, parts: parts.length, recovered: true });
         router.replace(`/report/${session.sessionId}`);
         return;
       }
+      track("upload_failed", { mode, status: "network" });
       setBanner("Upload failed — check your connection and try again.");
       setScreen("upload_failed");
     } finally {

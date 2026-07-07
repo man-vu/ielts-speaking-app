@@ -4,6 +4,7 @@ import { Stack, useFocusEffect } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Haptics from "expo-haptics";
 import { supabase } from "@/src/lib/supabase";
+import { track } from "@/src/lib/telemetry";
 import { overline, theme } from "@/src/lib/theme";
 
 const DONE_KEY = "drills-done-v1";
@@ -59,6 +60,7 @@ export default function Drills() {
 
   async function markDone(name: string) {
     void Haptics.selectionAsync().catch(() => {});
+    track("drill_done", { drill: name });
     const next = { ...doneMap, [name]: Date.now() };
     setDoneMap(next);
     await AsyncStorage.setItem(DONE_KEY, JSON.stringify(next)).catch(() => {});

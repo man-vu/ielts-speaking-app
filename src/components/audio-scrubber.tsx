@@ -42,6 +42,8 @@ export function AudioScrubber({ url }: { url: string }) {
         style={({ pressed }) => [styles.playButton, pressed && styles.pressed]}
         onPress={toggle}
         hitSlop={8}
+        accessibilityRole="button"
+        accessibilityLabel={status.playing ? "Pause recording" : "Play recording"}
       >
         {status.playing ? (
           <View style={styles.pauseIcon}>
@@ -58,6 +60,9 @@ export function AudioScrubber({ url }: { url: string }) {
         onLayout={(e) => setTrackWidth(e.nativeEvent.layout.width)}
         onPress={seek}
         hitSlop={{ top: 12, bottom: 12 }}
+        accessibilityRole="adjustable"
+        accessibilityLabel="Recording position"
+        accessibilityValue={{ text: `${fmt(status.currentTime)} of ${fmt(duration)}` }}
       >
         <View style={styles.trackBed}>
           <View style={[styles.trackFill, { width: `${progress * 100}%` }]} />

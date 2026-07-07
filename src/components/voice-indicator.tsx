@@ -77,7 +77,9 @@ export function VoiceIndicator({ connecting, examinerSpeaking, micLevel }: Voice
           </View>
         )}
       </View>
-      <Text style={[overline, styles.label]}>{label}</Text>
+      <Text style={[overline, styles.label]} accessibilityLiveRegion="polite">
+        {label}
+      </Text>
     </View>
   );
 }

@@ -2,6 +2,7 @@ import { useCallback, useState } from "react";
 import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 import { Link, Stack, useFocusEffect } from "expo-router";
 import { supabase } from "@/src/lib/supabase";
+import { Skeleton } from "@/src/components/skeleton";
 import { overline, theme } from "@/src/lib/theme";
 
 interface Bands {
@@ -67,6 +68,7 @@ function TrendChart({ points }: { points: number[] }) {
 
 export default function History() {
   const [rows, setRows] = useState<Row[]>([]);
+  const [loaded, setLoaded] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -77,7 +79,9 @@ export default function History() {
         .order("created_at", { ascending: false })
         .limit(50)
         .then(({ data }) => {
-          if (!cancelled && data) setRows(data as unknown as Row[]);
+          if (cancelled) return;
+          if (data) setRows(data as unknown as Row[]);
+          setLoaded(true);
         });
       return () => { cancelled = true; };
     }, [])
@@ -122,7 +126,17 @@ export default function History() {
             </View>
           ) : null
         }
-        ListEmptyComponent={<Text style={styles.muted}>No sessions yet.</Text>}
+        ListEmptyComponent={
+          loaded ? (
+            <Text style={styles.muted}>No sessions yet.</Text>
+          ) : (
+            <View style={{ gap: 10 }}>
+              <Skeleton height={64} radius={12} />
+              <Skeleton height={64} radius={12} />
+              <Skeleton height={64} radius={12} />
+            </View>
+          )
+        }
         renderItem={({ item }) => {
           const overall = bandsOf(item)?.overall;
           return (

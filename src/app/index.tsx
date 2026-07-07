@@ -7,6 +7,7 @@ import { supabase } from "@/src/lib/supabase";
 import { SIM_MONTHLY_UNITS, UNIT_COSTS } from "@/src/lib/config";
 import type { SimMode } from "@/src/lib/types";
 import { ONBOARDING_KEY, Onboarding } from "@/src/components/onboarding";
+import { Skeleton } from "@/src/components/skeleton";
 import { overline, theme } from "@/src/lib/theme";
 
 const MODES: { mode: SimMode; numeral: string; title: string; blurb: string; tip: string }[] = [
@@ -86,7 +87,11 @@ export default function Home() {
         <Text style={styles.wordmark}>IELTS Speaking</Text>
         <View style={styles.mastheadRule} />
         <View style={styles.topRow}>
-          <Text style={styles.units}>{unitsLine}</Text>
+          {unitsLine ? (
+            <Text style={styles.units}>{unitsLine}</Text>
+          ) : (
+            <Skeleton width={150} height={13} radius={6} />
+          )}
           <View style={styles.topLinks}>
             <Pressable onPress={() => setShowOnboarding(true)}>
               <Text style={styles.link}>How it works</Text>
@@ -103,7 +108,11 @@ export default function Home() {
         contentContainerStyle={{ gap: 12, paddingBottom: 12 }}
         renderItem={({ item }) => (
           <Link href={`/exam/${item.mode}`} asChild>
-            <Pressable style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}>
+            <Pressable
+              style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
+              accessibilityRole="button"
+              accessibilityLabel={`${item.title}. ${item.blurb}. Costs ${UNIT_COSTS[item.mode]} unit${UNIT_COSTS[item.mode] > 1 ? "s" : ""}.`}
+            >
               <Text style={styles.numeral}>{item.numeral}</Text>
               <View style={styles.cardBody}>
                 <View style={styles.cardHeader}>
