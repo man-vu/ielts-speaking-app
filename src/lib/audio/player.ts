@@ -15,6 +15,20 @@ export class Pcm24kPlayer {
     return this.ctx;
   }
 
+  /** Create the AudioContext up front so session-level audio config asserted
+   *  afterwards (voiceChat/AEC) governs it, instead of the lazy creation
+   *  during the first examiner chunk resetting the session. */
+  prime(): void {
+    this.ensureCtx();
+  }
+
+  /** True while examiner audio is audibly playing or scheduled ahead —
+   *  drives half-duplex mic gating (no send while the examiner speaks). */
+  get isPlaying(): boolean {
+    if (!this.ctx || this.active.size === 0) return false;
+    return this.nextStartTime > this.ctx.currentTime;
+  }
+
   enqueue(base64Pcm: string): void {
     if (this.muted) return;
     const ctx = this.ensureCtx();

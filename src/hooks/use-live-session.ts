@@ -126,6 +126,10 @@ export function useLiveSession(handlers: LiveHandlers) {
         return;
       }
       sessionRef.current = session;
+      // Eager context creation — the exam audio session config asserted
+      // after connect must govern playback (voiceChat/AEC), not be reset
+      // by a lazily-created context on the first examiner chunk.
+      player.prime();
     } catch (err) {
       if (genRef.current === gen) {
         teardown();
@@ -163,5 +167,15 @@ export function useLiveSession(handlers: LiveHandlers) {
     if (muted) player.stop();
   }, []);
 
-  return { status, connect, disconnect, sendSystemText, sendAudioChunk, setExaminerMuted };
+  /** Half-duplex gate: true while examiner audio is playing. The mic is
+   *  not sent (or recorded) during this window, making speaker-mode echo
+   *  feedback structurally impossible regardless of AEC quality. */
+  const isExaminerSpeaking = useCallback((): boolean => {
+    return playerRef.current?.isPlaying ?? false;
+  }, []);
+
+  return {
+    status, connect, disconnect, sendSystemText, sendAudioChunk,
+    setExaminerMuted, isExaminerSpeaking,
+  };
 }

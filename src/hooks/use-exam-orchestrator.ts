@@ -104,10 +104,14 @@ export function useExamOrchestrator(mode: SimMode): {
     interruptionHandlerRef.current = handleAudioInterruption;
   });
 
-  // Mic chunks always feed the live session; they only accumulate into the
+  // Mic chunks feed the live session; they only accumulate into the
   // scoring recording while currentPartRef names an active part (set by the
   // phase effect below) — this replaces the web's MediaRecorder start/stop.
+  // Half-duplex gate: while examiner audio is playing, the mic neither
+  // streams nor records — speaker-mode echo can't loop back into the model
+  // (spurious interruptions) or contaminate the scored WAV.
   const onChunk = useCallback((pcm: Int16Array) => {
+    if (liveRef.current.isExaminerSpeaking()) return;
     liveRef.current.sendAudioChunk(pcm);
     if (currentPartRef.current) getAccumulator().add(currentPartRef.current, pcm);
   }, []);
@@ -169,6 +173,10 @@ export function useExamOrchestrator(mode: SimMode): {
         return;
       }
       micRunningRef.current = true;
+      // Re-assert the exam session config now that every audio unit exists
+      // (recorder started, playback context primed by connect) — creating
+      // either can silently reset the session mode, losing voiceChat AEC.
+      await configureExamAudioSession();
       AudioManager.observeAudioInterruptions(true);
       interruptionSubRef.current = AudioManager.addSystemEventListener("interruption", (event) =>
         void interruptionHandlerRef.current(event)
