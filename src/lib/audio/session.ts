@@ -5,6 +5,12 @@ export async function requestMicPermission(): Promise<boolean> {
   return status === "Granted";
 }
 
+/** Silent status check — never shows the system prompt. */
+export async function hasMicPermission(): Promise<boolean> {
+  const status = await AudioManager.checkRecordingPermissions();
+  return status === "Granted";
+}
+
 /** playAndRecord + voiceChat gives hardware echo cancellation on iOS.
  *  allowBluetoothHFP (not "allowBluetooth") is the option that actually
  *  exists on the installed SDK's IOSOption union, and it's the one that

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Animated, Easing, Pressable, StyleSheet, Text, View } from "react-native";
-import { requestMicPermission } from "@/src/lib/audio/session";
+import { hasMicPermission, requestMicPermission } from "@/src/lib/audio/session";
 import { overline, theme } from "@/src/lib/theme";
 
 const WAVE_BARS = [0, 0.09, 0.18, 0.3, 0.42, 0.3, 0.18, 0.09, 0.24, 0.5, 0.36];
@@ -72,6 +72,14 @@ export function Preflight({ onReady }: { onReady(): void }) {
   const [granted, setGranted] = useState(false);
   const [error, setError] = useState("");
   const [starting, setStarting] = useState(false);
+
+  // iOS only ever prompts once — if permission already exists, skip straight
+  // to "Begin exam" instead of demanding a pointless tap every session.
+  useEffect(() => {
+    void hasMicPermission().then((ok) => {
+      if (ok) setGranted(true);
+    });
+  }, []);
 
   async function request() {
     setError("");
