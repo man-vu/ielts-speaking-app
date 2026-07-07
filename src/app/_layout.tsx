@@ -13,9 +13,12 @@ import {
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/src/lib/supabase";
 import { initCrashReporting, reportError } from "@/src/lib/telemetry";
+import { flushPreviousSession, installCrashCrumbs, logCrumb } from "@/src/lib/debug-log";
 import { overline, theme } from "@/src/lib/theme";
 
 initCrashReporting();
+installCrashCrumbs();
+logCrumb("app_launch");
 
 // Respect Dynamic Type up to 1.25× but no further — beyond that, fixed exam
 // layouts (numeral columns, timer rows, unit chips) shatter. Verified against
@@ -83,6 +86,9 @@ export default function RootLayout() {
     void supabase.auth.getSession().then(({ data }) => {
       setSession(data.session);
       setReady(true);
+      // Previous session's flight-recorder trail uploads once we know who
+      // the user is — this is what makes crashes debuggable without a cable.
+      void flushPreviousSession();
     });
     const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => setSession(s));
     return () => sub.subscription.unsubscribe();

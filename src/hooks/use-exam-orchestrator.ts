@@ -14,6 +14,7 @@ import {
   configureExamAudioSession, deactivateAudioSession, requestMicPermission,
 } from "@/src/lib/audio/session";
 import { apiFetch } from "@/src/lib/api";
+import { logCrumb } from "@/src/lib/debug-log";
 import { reportError, track } from "@/src/lib/telemetry";
 import { useLiveSession, type LiveStatus } from "./use-live-session";
 import { useMicStream } from "./use-mic-stream";
@@ -250,6 +251,7 @@ export function useExamOrchestrator(mode: SimMode): {
   // to always disconnect first, then attemptResume(): if the socket actually
   // survived, this just costs one reconnect; it never risks a double-connect.
   async function handleAudioInterruption(event: { type: "began" | "ended"; shouldResume: boolean }) {
+    logCrumb("audio_interruption", { type: event.type, shouldResume: event.shouldResume });
     if (endedRef.current) return;
     if (event.type === "began") {
       micStream.stop();
@@ -324,6 +326,7 @@ export function useExamOrchestrator(mode: SimMode): {
         if (put.status < 200 || put.status >= 300) {
           throw new Error(`part ${part} upload HTTP ${put.status}`);
         }
+        logCrumb("upload_part_ok", { part });
       }
 
       const res = await apiFetch("/api/score", {
@@ -341,6 +344,7 @@ export function useExamOrchestrator(mode: SimMode): {
       // persisted server-side; 409 means the server had already scored this
       // session (e.g. our fetch timed out but the upload/score actually
       // finished) — both land on the report screen, which handles the rest.
+      logCrumb("score_register", { status: res.status });
       if (res.ok || res.status === 503 || res.status === 409) {
         track("exam_completed", { mode, parts: parts.length });
         router.replace(`/report/${session.sessionId}`);
@@ -350,7 +354,10 @@ export function useExamOrchestrator(mode: SimMode): {
       reportError(new Error(`score registration HTTP ${res.status}`), { mode });
       setBanner("Upload failed. Your recordings are kept on this page — try again.");
       setScreen("upload_failed");
-    } catch {
+    } catch (uploadError) {
+      logCrumb("upload_error", {
+        message: uploadError instanceof Error ? uploadError.message : String(uploadError),
+      });
       // Network error or timeout — best-effort probe: if the server actually
       // finished (scored/completed) despite our fetch failing, go straight to
       // the report instead of telling the user their upload failed.
@@ -378,11 +385,15 @@ export function useExamOrchestrator(mode: SimMode): {
   }
 
   async function finishAndScore() {
+    logCrumb("finish_start");
     setScreen("uploading");
     liveRef.current.disconnect();
+    logCrumb("live_disconnected");
     micStream.stop();
     micRunningRef.current = false;
+    logCrumb("mic_stopped");
     await deactivateAudioSession();
+    logCrumb("audio_session_off");
 
     if (!session) return setScreen("fatal");
     if (getAccumulator().parts().length === 0) {
@@ -412,6 +423,7 @@ export function useExamOrchestrator(mode: SimMode): {
     currentPartRef.current = recordingPartFor(phase);
 
     // Examiner audio is suppressed during the monologue
+    logCrumb("phase", { phase, screen });
     liveRef.current.setExaminerMuted(phase === "part2_talk");
 
     // Prep + talk countdowns with [SYSTEM] handoff messages
@@ -434,6 +446,7 @@ export function useExamOrchestrator(mode: SimMode): {
         if (left <= 0) {
           clearInterval(interval);
           setCountdown(null);
+          logCrumb("timer_done", { phase });
           liveRef.current.sendSystemText(systemMsg);
           dispatch(done);
         }

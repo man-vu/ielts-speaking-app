@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 // fetch, atob — all present in Hermes) is the supported client path.
 import { EndSensitivity, GoogleGenAI, Modality, type Session } from "@google/genai/web";
 import { int16ToBase64 } from "@/src/lib/audio/pcm";
+import { logCrumb } from "@/src/lib/debug-log";
 import { Pcm24kPlayer } from "@/src/lib/audio/player";
 
 export type LiveStatus = "idle" | "connecting" | "live" | "closed" | "error";
@@ -104,11 +105,13 @@ export function useLiveSession(handlers: LiveHandlers) {
             if (message.goAway) handlersRef.current.onUnexpectedClose();
           },
           onerror: (e: ErrorEvent) => {
+            logCrumb("live_error", { message: e.message ?? "" });
             if (genRef.current !== gen) return;
             setStatus("error");
             handlersRef.current.onError(e.message ?? "Live connection error");
           },
           onclose: () => {
+            logCrumb("live_close", { intentional: intentionalCloseRef.current });
             if (genRef.current !== gen) return;
             setStatus("closed");
             if (!intentionalCloseRef.current) handlersRef.current.onUnexpectedClose();
