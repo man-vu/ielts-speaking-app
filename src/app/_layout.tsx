@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { Stack, router, useSegments, type ErrorBoundaryProps } from "expo-router";
 import { useFonts } from "expo-font";
 import {
@@ -16,6 +16,19 @@ import { initCrashReporting, reportError } from "@/src/lib/telemetry";
 import { overline, theme } from "@/src/lib/theme";
 
 initCrashReporting();
+
+// Respect Dynamic Type up to 1.25× but no further — beyond that, fixed exam
+// layouts (numeral columns, timer rows, unit chips) shatter. Verified against
+// a device screenshot at a large accessibility text size.
+type WithDefaultProps = { defaultProps?: { maxFontSizeMultiplier?: number } };
+(Text as unknown as WithDefaultProps).defaultProps = {
+  ...(Text as unknown as WithDefaultProps).defaultProps,
+  maxFontSizeMultiplier: 1.25,
+};
+(TextInput as unknown as WithDefaultProps).defaultProps = {
+  ...(TextInput as unknown as WithDefaultProps).defaultProps,
+  maxFontSizeMultiplier: 1.25,
+};
 
 /** Themed last-resort screen for uncaught render errors — reported to crash
  *  telemetry (when enabled) with a way back instead of a white screen. */

@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
 import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
-import { Link, Stack, useFocusEffect } from "expo-router";
+import { Stack, router, useFocusEffect } from "expo-router";
 import { supabase } from "@/src/lib/supabase";
 import { Skeleton } from "@/src/components/skeleton";
 import { overline, theme } from "@/src/lib/theme";
@@ -140,23 +140,25 @@ export default function History() {
         renderItem={({ item }) => {
           const overall = bandsOf(item)?.overall;
           return (
-            <Link href={`/report/${item.id}`} asChild>
-              <Pressable style={styles.row}>
-                <View>
-                  <Text style={styles.mode}>{MODE_LABELS[item.mode] ?? item.mode}</Text>
-                  <Text style={styles.date}>
-                    {new Date(item.created_at).toLocaleDateString(undefined, {
-                      day: "numeric", month: "short", year: "numeric",
-                    })}
-                  </Text>
-                </View>
-                <Text style={overall !== undefined && item.status === "scored" ? styles.band : styles.state}>
-                  {item.status === "scored" && overall !== undefined
-                    ? overall.toFixed(1)
-                    : item.status.replace("_", " ")}
+            <Pressable
+              onPress={() => router.push(`/report/${item.id}`)}
+              style={styles.row}
+              accessibilityRole="button"
+            >
+              <View>
+                <Text style={styles.mode}>{MODE_LABELS[item.mode] ?? item.mode}</Text>
+                <Text style={styles.date}>
+                  {new Date(item.created_at).toLocaleDateString(undefined, {
+                    day: "numeric", month: "short", year: "numeric",
+                  })}
                 </Text>
-              </Pressable>
-            </Link>
+              </View>
+              <Text style={overall !== undefined && item.status === "scored" ? styles.band : styles.state}>
+                {item.status === "scored" && overall !== undefined
+                  ? overall.toFixed(1)
+                  : item.status.replace("_", " ")}
+              </Text>
+            </Pressable>
           );
         }}
       />

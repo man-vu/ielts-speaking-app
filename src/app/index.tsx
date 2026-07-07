@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
-import { Link, Stack, useFocusEffect } from "expo-router";
+import { Link, Stack, router, useFocusEffect } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { supabase } from "@/src/lib/supabase";
@@ -107,25 +107,24 @@ export default function Home() {
         keyExtractor={(m) => m.mode}
         contentContainerStyle={{ gap: 12, paddingBottom: 12 }}
         renderItem={({ item }) => (
-          <Link href={`/exam/${item.mode}`} asChild>
-            <Pressable
-              style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
-              accessibilityRole="button"
-              accessibilityLabel={`${item.title}. ${item.blurb}. Costs ${UNIT_COSTS[item.mode]} unit${UNIT_COSTS[item.mode] > 1 ? "s" : ""}.`}
-            >
-              <Text style={styles.numeral}>{item.numeral}</Text>
-              <View style={styles.cardBody}>
-                <View style={styles.cardHeader}>
-                  <Text style={styles.cardTitle}>{item.title}</Text>
-                  <Text style={styles.cost}>
-                    {UNIT_COSTS[item.mode]} unit{UNIT_COSTS[item.mode] > 1 ? "s" : ""}
-                  </Text>
-                </View>
-                <Text style={styles.blurb}>{item.blurb}</Text>
-                <Text style={styles.tip}>{item.tip}</Text>
+          <Pressable
+            onPress={() => router.push(`/exam/${item.mode}`)}
+            style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
+            accessibilityRole="button"
+            accessibilityLabel={`${item.title}. ${item.blurb}. Costs ${UNIT_COSTS[item.mode]} unit${UNIT_COSTS[item.mode] > 1 ? "s" : ""}.`}
+          >
+            <Text style={styles.numeral}>{item.numeral}</Text>
+            <View style={styles.cardBody}>
+              <View style={styles.cardHeader}>
+                <Text style={styles.cardTitle}>{item.title}</Text>
+                <Text style={styles.cost}>
+                  {UNIT_COSTS[item.mode]} unit{UNIT_COSTS[item.mode] > 1 ? "s" : ""}
+                </Text>
               </View>
-            </Pressable>
-          </Link>
+              <Text style={styles.blurb}>{item.blurb}</Text>
+              <Text style={styles.tip}>{item.tip}</Text>
+            </View>
+          </Pressable>
         )}
       />
       <Pressable onPress={() => void supabase.auth.signOut()}>
@@ -140,9 +139,12 @@ const styles = StyleSheet.create({
   masthead: { gap: 8 },
   wordmark: { fontFamily: theme.fontDisplayBold, fontSize: 34, color: theme.ink },
   mastheadRule: { height: 1, backgroundColor: theme.border, marginVertical: 6 },
-  topRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  topLinks: { flexDirection: "row", gap: 18 },
-  units: { color: theme.brass, fontSize: 13 },
+  topRow: {
+    flexDirection: "row", justifyContent: "space-between", alignItems: "center",
+    flexWrap: "wrap", rowGap: 6,
+  },
+  topLinks: { flexDirection: "row", gap: 18, flexShrink: 0 },
+  units: { color: theme.brass, fontSize: 13, flexShrink: 1 },
   link: { color: theme.info, fontSize: 13 },
   card: {
     flexDirection: "row", gap: 14, borderWidth: 1, borderColor: theme.border,
@@ -151,12 +153,12 @@ const styles = StyleSheet.create({
   cardPressed: { transform: [{ scale: 0.98 }], borderColor: theme.brass },
   numeral: {
     fontFamily: theme.fontDisplayBold, fontSize: 20, color: theme.brass,
-    width: 44, textAlign: "center", paddingTop: 2,
+    minWidth: 44, flexShrink: 0, textAlign: "center", paddingTop: 2,
   },
   cardBody: { flex: 1, gap: 5 },
   cardHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "baseline" },
-  cardTitle: { fontFamily: theme.fontDisplay, color: theme.ink, fontSize: 18 },
-  cost: { fontFamily: theme.fontMono, color: theme.inkMuted, fontSize: 11 },
+  cardTitle: { fontFamily: theme.fontDisplay, color: theme.ink, fontSize: 18, flexShrink: 1 },
+  cost: { fontFamily: theme.fontMono, color: theme.inkMuted, fontSize: 11, flexShrink: 0, marginLeft: 8 },
   blurb: { color: theme.inkSecondary, fontSize: 13.5, lineHeight: 19 },
   tip: { color: theme.inkMuted, fontSize: 12.5, lineHeight: 18, fontStyle: "italic" },
   signOut: { color: theme.inkMuted, textAlign: "center", padding: 8, fontSize: 13 },
