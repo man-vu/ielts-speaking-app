@@ -31,6 +31,7 @@ export default function ExamScreen() {
   const exam = useExamOrchestrator(mode);
   const [retrying, setRetrying] = useState(false);
   const [notes, setNotes] = useState("");
+  const [readyTapped, setReadyTapped] = useState(false);
   const navigation = useNavigation();
 
   const midExam = exam.screen === "exam" && exam.phase !== "ended" && exam.phase !== "connecting";
@@ -133,6 +134,20 @@ export default function ExamScreen() {
             <CueCard text={exam.display.cueCard} secondsLeft={exam.countdown} />
           ) : null}
           <NotesPad value={notes} onChange={setNotes} editable />
+          <Pressable
+            style={({ pressed }) => [styles.readyButton, pressed && { transform: [{ scale: 0.98 }] }]}
+            onPress={() => {
+              if (readyTapped) return;
+              setReadyTapped(true);
+              exam.startTalkEarly();
+            }}
+            disabled={readyTapped}
+            accessibilityRole="button"
+          >
+            <Text style={styles.readyText}>
+              {readyTapped ? "Alex will invite you now…" : "I'm ready to speak"}
+            </Text>
+          </Pressable>
         </>
       )}
 
@@ -226,6 +241,10 @@ const styles = StyleSheet.create({
   },
   topicLabel: { color: theme.inkMuted, minWidth: 52 },
   topicText: { flex: 1, fontSize: 13.5, lineHeight: 20, color: theme.inkSecondary },
+  readyButton: {
+    backgroundColor: theme.brass, borderRadius: 10, padding: 15, alignItems: "center",
+  },
+  readyText: { fontFamily: theme.fontDisplay, fontSize: 16, color: theme.bg },
   finishEarly: {
     marginTop: "auto", borderWidth: 1, borderColor: theme.borderSoft,
     borderRadius: 10, padding: 14, alignItems: "center",

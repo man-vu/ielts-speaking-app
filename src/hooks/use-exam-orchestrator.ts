@@ -30,6 +30,7 @@ export function useExamOrchestrator(mode: SimMode): {
   liveStatus: LiveStatus;
   micLevel: number;
   examinerSpeaking: boolean;
+  startTalkEarly(): void;
   begin(): Promise<void>;
   endEarly(): void;
   retryUpload(): Promise<void>;
@@ -116,7 +117,11 @@ export function useExamOrchestrator(mode: SimMode): {
   // streams nor records — speaker-mode echo can't loop back into the model
   // (spurious interruptions) or contaminate the scored WAV.
   const onChunk = useCallback((pcm: Int16Array) => {
-    if (liveRef.current.isExaminerSpeaking()) return;
+    // Half-duplex gate — EXCEPT during the Part 2 long turn: the examiner is
+    // muted there, so echo is structurally impossible, and a stale playback
+    // queue must never cost the candidate their opening words (a real run
+    // lost 80+ seconds of a talk to this gate).
+    if (stateRef.current.phase !== "part2_talk" && liveRef.current.isExaminerSpeaking()) return;
     // Coarse RMS (every 8th sample) drives the on-screen mic meter.
     let sum = 0;
     for (let i = 0; i < pcm.length; i += 8) {
@@ -384,6 +389,24 @@ export function useExamOrchestrator(mode: SimMode): {
     }
   }
 
+  /** Candidate waives the rest of the prep minute (design screen 04's
+   *  "I'm ready to speak"). The invite is spoken first; the phase flips a
+   *  few seconds later so the examiner's cue is audible before muting. */
+  const startTalkEarly = useCallback(() => {
+    if (stateRef.current.phase !== "part2_prep" || endedRef.current) return;
+    logCrumb("early_start");
+    track("early_start", { mode });
+    liveRef.current.sendSystemText(
+      "[SYSTEM] The candidate is ready and waives the remaining preparation time. Tell them to begin their talk now, then remain silent while they speak."
+    );
+    setTimeout(() => {
+      if (stateRef.current.phase === "part2_prep" && !endedRef.current) {
+        dispatch({ type: "PREP_TIMER_DONE" });
+      }
+    }, 4000);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   async function finishAndScore() {
     logCrumb("finish_start");
     setScreen("uploading");
@@ -432,22 +455,28 @@ export function useExamOrchestrator(mode: SimMode): {
       const total = phase === "part2_prep" ? PART2_PREP_SECONDS : PART2_TALK_SECONDS;
       const done: ExamEvent =
         phase === "part2_prep" ? { type: "PREP_TIMER_DONE" } : { type: "TALK_TIMER_DONE" };
-      const systemMsg =
-        phase === "part2_prep"
-          ? "[SYSTEM] The one-minute preparation time is over. Invite the candidate to begin their talk now."
-          : state.mode === "full"
-            ? "[SYSTEM] The candidate's two minutes are up. Stop them politely, ask exactly one rounding-off question, and after their answer call advance_part with part=3."
-            : "[SYSTEM] The candidate's two minutes are up. Stop them politely, ask exactly one rounding-off question, then close and call end_exam.";
+      const talkEndMsg =
+        state.mode === "full"
+          ? "[SYSTEM] The candidate's two minutes are up. Stop them politely, ask exactly one rounding-off question, and after their answer call advance_part with part=3."
+          : "[SYSTEM] The candidate's two minutes are up. Stop them politely, ask exactly one rounding-off question, then close and call end_exam.";
       let left = total;
       setCountdown(left);
       interval = setInterval(() => {
         left -= 1;
         setCountdown(left);
+        // The invite must be SPOKEN before the phase flips — once the talk
+        // starts the examiner is muted, so an invite requested at 0s is
+        // never heard. Ask a few seconds early instead.
+        if (phase === "part2_prep" && left === 6) {
+          liveRef.current.sendSystemText(
+            "[SYSTEM] The preparation minute is nearly over. Tell the candidate to begin their talk now, then remain silent while they speak."
+          );
+        }
         if (left <= 0) {
           clearInterval(interval);
           setCountdown(null);
           logCrumb("timer_done", { phase });
-          liveRef.current.sendSystemText(systemMsg);
+          if (phase === "part2_talk") liveRef.current.sendSystemText(talkEndMsg);
           dispatch(done);
         }
       }, 1000);
@@ -489,6 +518,7 @@ export function useExamOrchestrator(mode: SimMode): {
     examinerSpeaking: voice.examinerSpeaking,
     begin,
     endEarly,
+    startTalkEarly,
     retryUpload: uploadRecordings,
     sessionId: session?.sessionId ?? null,
   };

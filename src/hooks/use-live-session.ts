@@ -177,7 +177,8 @@ export function useLiveSession(handlers: LiveHandlers) {
     const player = playerRef.current;
     if (!player) return;
     player.muted = muted;
-    if (muted) player.stop();
+    // Deliberately no stop(): audio already queued (the "please begin your
+    // talk" invite) plays out; muting only drops chunks arriving afterwards.
   }, []);
 
   /** Half-duplex gate: true while examiner audio is playing. The mic is
