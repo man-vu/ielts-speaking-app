@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 // "@google/genai/web": Metro resolves the bare package to a cross-platform
 // stub whose Live API throws on React Native; the web build (WebSocket,
 // fetch, atob — all present in Hermes) is the supported client path.
-import { GoogleGenAI, Modality, type Session } from "@google/genai/web";
+import { EndSensitivity, GoogleGenAI, Modality, type Session } from "@google/genai/web";
 import { int16ToBase64 } from "@/src/lib/audio/pcm";
 import { Pcm24kPlayer } from "@/src/lib/audio/player";
 
@@ -118,6 +118,16 @@ export function useLiveSession(handlers: LiveHandlers) {
           responseModalities: [Modality.AUDIO],
           contextWindowCompression: { slidingWindow: {} }, // removes 15-min cap
           sessionResumption: { handle: opts.resumeHandle ?? undefined },
+          // IELTS answers contain natural thinking pauses — the default VAD
+          // declares end-of-turn too eagerly and the examiner cuts in
+          // mid-answer. Low sensitivity + a longer silence window lets the
+          // candidate breathe without losing the floor.
+          realtimeInputConfig: {
+            automaticActivityDetection: {
+              endOfSpeechSensitivity: EndSensitivity.END_SENSITIVITY_LOW,
+              silenceDurationMs: 1500,
+            },
+          },
         },
       });
 
