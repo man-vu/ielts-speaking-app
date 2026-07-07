@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { router } from "expo-router";
 import { File, Paths } from "expo-file-system";
+import * as LegacyFileSystem from "expo-file-system/legacy";
 import { AudioManager } from "react-native-audio-api";
 import { PART2_PREP_SECONDS, PART2_TALK_SECONDS } from "@/src/lib/config";
 import {
@@ -260,35 +261,55 @@ export function useExamOrchestrator(mode: SimMode): {
     setScreen("fatal");
   }
 
-  // Builds the FormData from whatever the accumulator currently holds and
-  // uploads it. Extracted so "Retry upload" can re-invoke it without
-  // repeating the one-time teardown in finishAndScore.
+  // Uploads whatever the accumulator currently holds. Extracted so "Retry
+  // upload" can re-invoke it without repeating finishAndScore's teardown.
+  // The WAVs go DIRECTLY to Supabase Storage via signed URLs — Vercel caps
+  // request bodies at ~4.5 MB, far below a multi-minute uncompressed WAV,
+  // so audio bytes must never transit the backend. /api/score then gets a
+  // tiny JSON registration instead of multipart.
   async function uploadRecordings() {
     if (!session) return setScreen("fatal");
     const parts = getAccumulator().parts();
-    const fd = new FormData();
-    fd.append("sessionId", session.sessionId);
     const cacheFiles: File[] = [];
     try {
+      const urlRes = await apiFetch(`/api/sessions/${session.sessionId}/upload-urls`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ parts: parts.map((part) => ({ part })) }),
+      });
+      if (!urlRes.ok) throw new Error(`upload-urls HTTP ${urlRes.status}`);
+      const { uploads } = (await urlRes.json()) as {
+        uploads: { part: 1 | 2 | 3; signedUrl: string }[];
+      };
+
       for (const part of parts) {
-        // RN 0.86's Blob constructor throws on ArrayBuffer parts, so the WAV
-        // goes to a cache file instead; FormData gets a file descriptor.
-        const wavBytes = getAccumulator().toWav(part);
+        const target = uploads.find((u) => u.part === part);
+        if (!target) throw new Error(`no upload URL for part ${part}`);
         const file = new File(Paths.cache, `part${part}.wav`);
-        file.write(wavBytes);
+        file.write(getAccumulator().toWav(part));
         cacheFiles.push(file);
-        // RN's FormData accepts a { uri, name, type } file descriptor at
-        // runtime; the DOM Blob type doesn't know about that shape, hence
-        // the cast.
-        fd.append(
-          `part${part}`,
-          { uri: file.uri, name: `part${part}.wav`, type: "audio/wav" } as unknown as Blob
-        );
-        fd.append(`duration${part}`, String(Math.round(getAccumulator().durationSeconds(part))));
+        // Native uploader: no RN fetch/Blob limitations, streams from disk.
+        const put = await LegacyFileSystem.uploadAsync(target.signedUrl, file.uri, {
+          httpMethod: "PUT",
+          uploadType: LegacyFileSystem.FileSystemUploadType.BINARY_CONTENT,
+          headers: { "Content-Type": "audio/wav" },
+        });
+        if (put.status < 200 || put.status >= 300) {
+          throw new Error(`part ${part} upload HTTP ${put.status}`);
+        }
       }
-      // Do NOT set Content-Type — fetch derives the multipart boundary from
-      // the FormData body.
-      const res = await apiFetch("/api/score", { method: "POST", body: fd });
+
+      const res = await apiFetch("/api/score", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sessionId: session.sessionId,
+          uploadedParts: parts.map((part) => ({
+            part,
+            duration: Math.round(getAccumulator().durationSeconds(part)),
+          })),
+        }),
+      });
       // 503 means scoring is temporarily down but the audio was already
       // persisted server-side; 409 means the server had already scored this
       // session (e.g. our fetch timed out but the upload/score actually
