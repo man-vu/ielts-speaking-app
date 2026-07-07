@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Link, Stack, router, useFocusEffect } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -7,30 +7,20 @@ import { supabase } from "@/src/lib/supabase";
 import { SIM_MONTHLY_UNITS, UNIT_COSTS } from "@/src/lib/config";
 import type { SimMode } from "@/src/lib/types";
 import { ONBOARDING_KEY, Onboarding } from "@/src/components/onboarding";
+import { ExaminerBadge } from "@/src/components/exam-stage";
 import { Skeleton } from "@/src/components/skeleton";
 import { overline, theme } from "@/src/lib/theme";
 
-const MODES: { mode: SimMode; numeral: string; title: string; blurb: string; tip: string }[] = [
-  {
-    mode: "full", numeral: "I–III", title: "Full exam",
-    blurb: "Parts 1–3 · 11–14 minutes · complete band report",
-    tip: "Treat it like the real thing — quiet room, full sentences.",
-  },
-  {
-    mode: "part1", numeral: "I", title: "Part 1 practice",
-    blurb: "Interview questions on familiar topics",
-    tip: "Aim for 2–4 sentences per answer, not one-liners.",
-  },
-  {
-    mode: "part2", numeral: "II", title: "Part 2 practice",
-    blurb: "Cue card · 1 min prep · 2 min talk",
-    tip: "Use the notes pad — cover every bullet on the card.",
-  },
-  {
-    mode: "part3", numeral: "III", title: "Part 3 practice",
-    blurb: "Abstract discussion questions",
-    tip: "Give opinions with reasons — 'because' is your friend.",
-  },
+const PARTS = [
+  { num: "01", name: "Interview", detail: "Familiar topics · 4–5 min" },
+  { num: "02", name: "Long turn", detail: "Cue card · 3–4 min" },
+  { num: "03", name: "Discussion", detail: "Abstract ideas · 4–5 min" },
+];
+
+const PRACTICE: { mode: SimMode; numeral: string; name: string }[] = [
+  { mode: "part1", numeral: "I", name: "Interview" },
+  { mode: "part2", numeral: "II", name: "Long turn" },
+  { mode: "part3", numeral: "III", name: "Discussion" },
 ];
 
 function currentMonthStart(): string {
@@ -72,7 +62,7 @@ export default function Home() {
   );
 
   return (
-    <View style={styles.container}>
+    <View style={styles.root}>
       <LinearGradient
         colors={["#1B2140", theme.bg]}
         locations={[0, 0.42]}
@@ -82,84 +72,135 @@ export default function Home() {
       <Stack.Screen options={{ title: "", headerShown: false }} />
       <Onboarding visible={showOnboarding} onDone={() => setShowOnboarding(false)} />
 
-      <View style={styles.masthead}>
-        <Text style={overline}>The Speaking Test</Text>
-        <Text style={styles.wordmark}>IELTS Speaking</Text>
-        <View style={styles.mastheadRule} />
-        <View style={styles.topRow}>
+      <ScrollView contentContainerStyle={styles.content}>
+        <View style={styles.badgeWrap}>
+          <ExaminerBadge speaking={false} size={116} />
+        </View>
+
+        <View style={styles.masthead}>
+          <Text style={overline}>The Speaking Test</Text>
+          <Text style={styles.wordmark}>IELTS Speaking</Text>
+          <View style={styles.rule} />
+        </View>
+
+        <Text style={styles.intro}>
+          A face-to-face style assessment in three parts. Your examiner, Alex,
+          will guide you throughout.
+        </Text>
+
+        <View style={styles.parts}>
+          {PARTS.map((p, i) => (
+            <View key={p.num}>
+              {i > 0 && <View style={styles.partDivider} />}
+              <View style={styles.partRow}>
+                <Text style={styles.partNum}>{p.num}</Text>
+                <View>
+                  <Text style={styles.partName}>{p.name}</Text>
+                  <Text style={styles.partDetail}>{p.detail}</Text>
+                </View>
+              </View>
+            </View>
+          ))}
+        </View>
+
+        <View style={styles.actions}>
+          <Pressable
+            style={({ pressed }) => [styles.primary, pressed && styles.pressed]}
+            onPress={() => router.push("/exam/full")}
+            accessibilityRole="button"
+            accessibilityLabel={`Begin the full exam. Costs ${UNIT_COSTS.full} units.`}
+          >
+            <Text style={styles.primaryText}>Begin exam</Text>
+          </Pressable>
+          <Pressable
+            style={({ pressed }) => [styles.secondary, pressed && styles.pressed]}
+            onPress={() => setShowOnboarding(true)}
+            accessibilityRole="button"
+          >
+            <Text style={styles.secondaryText}>How the test works</Text>
+          </Pressable>
+        </View>
+
+        <View style={styles.practiceBlock}>
+          <Text style={[overline, styles.practiceLabel]}>Practice a single part</Text>
+          <View style={styles.practiceRow}>
+            {PRACTICE.map((p) => (
+              <Pressable
+                key={p.mode}
+                style={({ pressed }) => [styles.practiceCard, pressed && styles.practicePressed]}
+                onPress={() => router.push(`/exam/${p.mode}`)}
+                accessibilityRole="button"
+                accessibilityLabel={`Practice ${p.name}. Costs 1 unit.`}
+              >
+                <Text style={styles.practiceNumeral}>{p.numeral}</Text>
+                <Text style={styles.practiceName}>{p.name}</Text>
+                <Text style={styles.practiceCost}>1 unit</Text>
+              </Pressable>
+            ))}
+          </View>
+        </View>
+
+        <View style={styles.footer}>
           {unitsLine ? (
             <Text style={styles.units}>{unitsLine}</Text>
           ) : (
             <Skeleton width={150} height={13} radius={6} />
           )}
-          <View style={styles.topLinks}>
-            <Pressable onPress={() => setShowOnboarding(true)}>
-              <Text style={styles.link}>How it works</Text>
-            </Pressable>
+          <View style={styles.footerLinks}>
             <Link href="/drills" style={styles.link}>Drills</Link>
             <Link href="/history" style={styles.link}>History</Link>
+            <Pressable onPress={() => void supabase.auth.signOut()} accessibilityRole="button">
+              <Text style={styles.signOut}>Sign out</Text>
+            </Pressable>
           </View>
         </View>
-      </View>
-
-      <FlatList
-        data={MODES}
-        keyExtractor={(m) => m.mode}
-        contentContainerStyle={{ gap: 12, paddingBottom: 12 }}
-        renderItem={({ item }) => (
-          <Pressable
-            onPress={() => router.push(`/exam/${item.mode}`)}
-            style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
-            accessibilityRole="button"
-            accessibilityLabel={`${item.title}. ${item.blurb}. Costs ${UNIT_COSTS[item.mode]} unit${UNIT_COSTS[item.mode] > 1 ? "s" : ""}.`}
-          >
-            <Text style={styles.numeral}>{item.numeral}</Text>
-            <View style={styles.cardBody}>
-              <View style={styles.cardHeader}>
-                <Text style={styles.cardTitle}>{item.title}</Text>
-                <Text style={styles.cost}>
-                  {UNIT_COSTS[item.mode]} unit{UNIT_COSTS[item.mode] > 1 ? "s" : ""}
-                </Text>
-              </View>
-              <Text style={styles.blurb}>{item.blurb}</Text>
-              <Text style={styles.tip}>{item.tip}</Text>
-            </View>
-          </Pressable>
-        )}
-      />
-      <Pressable onPress={() => void supabase.auth.signOut()}>
-        <Text style={styles.signOut}>Sign out</Text>
-      </Pressable>
+      </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 20, paddingTop: 72, gap: 20 },
+  root: { flex: 1 },
+  content: { padding: 24, paddingTop: 64, paddingBottom: 32, gap: 16 },
+  badgeWrap: { alignItems: "center" },
   masthead: { gap: 8 },
   wordmark: { fontFamily: theme.fontDisplayBold, fontSize: 34, color: theme.ink },
-  mastheadRule: { height: 1, backgroundColor: theme.border, marginVertical: 6 },
-  topRow: {
-    flexDirection: "row", justifyContent: "space-between", alignItems: "center",
-    flexWrap: "wrap", rowGap: 6,
+  rule: { height: 1, backgroundColor: theme.border, marginTop: 4 },
+  intro: { fontSize: 14, lineHeight: 22, color: theme.inkSecondary },
+  parts: { gap: 10, marginTop: 2 },
+  partRow: { flexDirection: "row", gap: 12, alignItems: "flex-start" },
+  partNum: {
+    fontFamily: theme.fontMono, fontSize: 12, color: theme.brass,
+    minWidth: 22, paddingTop: 2,
   },
-  topLinks: { flexDirection: "row", gap: 18, flexShrink: 0 },
-  units: { color: theme.brass, fontSize: 13, flexShrink: 1 },
+  partName: { color: theme.ink, fontSize: 13.5 },
+  partDetail: { color: theme.inkMuted, fontSize: 12, marginTop: 1 },
+  partDivider: { height: 1, backgroundColor: theme.borderSoft, marginBottom: 10 },
+  actions: { gap: 10, marginTop: 6 },
+  primary: {
+    backgroundColor: theme.brass, borderRadius: 10, padding: 15, alignItems: "center",
+  },
+  primaryText: { fontFamily: theme.fontDisplay, fontSize: 16, color: theme.bg },
+  secondary: {
+    backgroundColor: theme.cardRaised, borderWidth: 1, borderColor: theme.brass,
+    borderRadius: 10, padding: 15, alignItems: "center",
+  },
+  secondaryText: { fontFamily: theme.fontDisplay, fontSize: 16, color: theme.ink },
+  pressed: { transform: [{ scale: 0.98 }] },
+  practiceBlock: { gap: 10, marginTop: 8 },
+  practiceLabel: { color: theme.inkMuted },
+  practiceRow: { flexDirection: "row", gap: 10 },
+  practiceCard: {
+    flex: 1, alignItems: "center", gap: 3, paddingVertical: 14,
+    backgroundColor: theme.card, borderWidth: 1, borderColor: theme.border, borderRadius: 12,
+  },
+  practicePressed: { transform: [{ scale: 0.97 }], borderColor: theme.brass },
+  practiceNumeral: { fontFamily: theme.fontDisplayBold, fontSize: 18, color: theme.brass },
+  practiceName: { color: theme.ink, fontSize: 12.5 },
+  practiceCost: { fontFamily: theme.fontMono, fontSize: 10.5, color: theme.inkMuted },
+  footer: { gap: 12, marginTop: 14, alignItems: "center" },
+  units: { color: theme.brass, fontSize: 13 },
+  footerLinks: { flexDirection: "row", gap: 24, alignItems: "center" },
   link: { color: theme.info, fontSize: 13 },
-  card: {
-    flexDirection: "row", gap: 14, borderWidth: 1, borderColor: theme.border,
-    backgroundColor: theme.card, borderRadius: 12, padding: 16,
-  },
-  cardPressed: { transform: [{ scale: 0.98 }], borderColor: theme.brass },
-  numeral: {
-    fontFamily: theme.fontDisplayBold, fontSize: 20, color: theme.brass,
-    minWidth: 44, flexShrink: 0, textAlign: "center", paddingTop: 2,
-  },
-  cardBody: { flex: 1, gap: 5 },
-  cardHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "baseline" },
-  cardTitle: { fontFamily: theme.fontDisplay, color: theme.ink, fontSize: 18, flexShrink: 1 },
-  cost: { fontFamily: theme.fontMono, color: theme.inkMuted, fontSize: 11, flexShrink: 0, marginLeft: 8 },
-  blurb: { color: theme.inkSecondary, fontSize: 13.5, lineHeight: 19 },
-  tip: { color: theme.inkMuted, fontSize: 12.5, lineHeight: 18, fontStyle: "italic" },
-  signOut: { color: theme.inkMuted, textAlign: "center", padding: 8, fontSize: 13 },
+  signOut: { color: theme.inkMuted, fontSize: 13 },
 });

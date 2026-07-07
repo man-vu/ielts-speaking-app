@@ -6,6 +6,7 @@ import { Stack, useLocalSearchParams } from "expo-router";
 import { setAudioModeAsync } from "expo-audio";
 import * as Haptics from "expo-haptics";
 import { AudioScrubber } from "@/src/components/audio-scrubber";
+import { Assessing } from "@/src/components/assessing";
 import { apiFetch } from "@/src/lib/api";
 import { segmentTranscript, speechMetrics } from "@/src/lib/report-insights";
 import { track } from "@/src/lib/telemetry";
@@ -13,6 +14,13 @@ import type { ReportPayload } from "@/src/lib/types";
 import { overline, theme } from "@/src/lib/theme";
 
 const AUTO_RESCORE_DELAY_MS = 20_000;
+
+const BAR_LABELS: { key: string; label: string }[] = [
+  { key: "fluency_coherence", label: "Fluency & coherence" },
+  { key: "lexical_resource", label: "Lexical resource" },
+  { key: "grammatical_range_accuracy", label: "Grammatical range" },
+  { key: "pronunciation", label: "Pronunciation" },
+];
 
 const CRITERIA: { key: string; label: string }[] = [
   { key: "fluency_coherence", label: "Fluency & Coherence" },
@@ -119,21 +127,23 @@ export default function ReportScreen() {
   }
   if (payload.status !== "scored" || !payload.report) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.muted}>Scoring your performance…</Text>
-        <Text style={styles.hint}>This usually takes under a minute. Checking automatically.</Text>
-        {error ? <Text style={styles.error}>{error}</Text> : null}
-        {payload.status === "completed" && (
-          <>
-            <Pressable
-              style={styles.button}
-              onPress={() => void rescore()}
-              disabled={rescoring}
-            >
-              <Text style={styles.buttonText}>{rescoring ? "Retrying…" : "Retry scoring now"}</Text>
-            </Pressable>
+      <View style={styles.assessingWrap}>
+        <Assessing />
+        {(error || rescoreError || payload.status === "completed") && (
+          <View style={styles.assessingFooter}>
+            {error ? <Text style={styles.error}>{error}</Text> : null}
+            {payload.status === "completed" && (
+              <Pressable
+                style={styles.button}
+                onPress={() => void rescore()}
+                disabled={rescoring}
+                accessibilityRole="button"
+              >
+                <Text style={styles.buttonText}>{rescoring ? "Retrying…" : "Retry scoring now"}</Text>
+              </Pressable>
+            )}
             {rescoreError ? <Text style={styles.error}>{rescoreError}</Text> : null}
-          </>
+          </View>
         )}
       </View>
     );
@@ -160,6 +170,20 @@ export default function ReportScreen() {
           <Text style={styles.heroBand}>{r.band_scores.overall.toFixed(1)}</Text>
         </Animated.View>
         <Text style={styles.note}>{r.examiner_note}</Text>
+        <View style={styles.barsBlock}>
+          {BAR_LABELS.map(({ key, label }) => {
+            const value = ((r.band_scores as unknown) as Record<string, number>)[key] ?? 0;
+            return (
+              <View key={key} style={styles.barRow}>
+                <Text style={styles.barLabel}>{label}</Text>
+                <View style={styles.barTrack}>
+                  <View style={[styles.barFill, { width: `${(value / 9) * 100}%` }]} />
+                </View>
+                <Text style={styles.barValue}>{value.toFixed(1)}</Text>
+              </View>
+            );
+          })}
+        </View>
         <Pressable
           style={styles.shareButton}
           onPress={() => {
@@ -293,6 +317,20 @@ const styles = StyleSheet.create({
   errorItem: { gap: 2, marginTop: 8 },
   errorHead: { color: theme.stampRed, fontFamily: theme.fontDisplay, fontSize: 13.5 },
   fix: { color: theme.live, fontSize: 13.5 },
+  assessingWrap: { flex: 1 },
+  assessingFooter: { padding: 24, paddingTop: 0, gap: 10, alignItems: "center" },
+  barsBlock: { alignSelf: "stretch", gap: 13, paddingVertical: 6 },
+  barRow: { flexDirection: "row", alignItems: "center", gap: 12 },
+  barLabel: { flex: 1, fontSize: 13, color: theme.inkSecondary },
+  barTrack: {
+    width: 110, height: 6, borderRadius: 3, backgroundColor: theme.borderSoft,
+    overflow: "hidden",
+  },
+  barFill: { height: 6, borderRadius: 3, backgroundColor: theme.brass },
+  barValue: {
+    fontFamily: theme.fontMono, fontSize: 13, color: theme.ink, width: 30,
+    textAlign: "right", fontVariant: ["tabular-nums"],
+  },
   shareButton: {
     borderWidth: 1, borderColor: theme.borderSoft, borderRadius: 8,
     paddingVertical: 9, paddingHorizontal: 20,
