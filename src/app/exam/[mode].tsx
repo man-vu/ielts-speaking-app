@@ -26,9 +26,9 @@ function fmt(seconds: number): string {
 
 export default function ExamScreen() {
   useKeepAwake();
-  const params = useLocalSearchParams<{ mode: string }>();
+  const params = useLocalSearchParams<{ mode: string; slug?: string }>();
   const mode = (MODES.includes(params.mode as SimMode) ? params.mode : "part1") as SimMode;
-  const exam = useExamOrchestrator(mode);
+  const exam = useExamOrchestrator(mode, typeof params.slug === "string" ? params.slug : undefined);
   const [retrying, setRetrying] = useState(false);
   const [notes, setNotes] = useState("");
   const [readyTapped, setReadyTapped] = useState(false);

@@ -21,7 +21,7 @@ import { useMicStream } from "./use-mic-stream";
 
 export type Screen = "preflight" | "exam" | "uploading" | "upload_failed" | "fatal";
 
-export function useExamOrchestrator(mode: SimMode): {
+export function useExamOrchestrator(mode: SimMode, part23Slug?: string): {
   screen: Screen;
   phase: ExamPhase;
   banner: string;
@@ -178,7 +178,7 @@ export function useExamOrchestrator(mode: SimMode): {
       const res = await apiFetch("/api/live-token", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode }),
+        body: JSON.stringify(part23Slug ? { mode, part23Slug } : { mode }),
       });
       const body = (await res.json()) as TokenResponse & { error?: string };
       if (!res.ok) throw new Error(body.error ?? `HTTP ${res.status}`);
@@ -244,7 +244,9 @@ export function useExamOrchestrator(mode: SimMode): {
         token: body.token, model: body.model, resumeHandle: resumeHandleRef.current,
       });
       setBanner("");
-      liveRef.current.setExaminerMuted(stateRef.current.phase === "part2_talk");
+      liveRef.current.setExaminerMuted(
+        stateRef.current.phase === "part2_talk" || stateRef.current.phase === "part2_prep"
+      );
     } catch {
       await abortSession();
     }
@@ -396,6 +398,7 @@ export function useExamOrchestrator(mode: SimMode): {
     if (stateRef.current.phase !== "part2_prep" || endedRef.current) return;
     logCrumb("early_start");
     track("early_start", { mode });
+    liveRef.current.setExaminerMuted(false);
     liveRef.current.sendSystemText(
       "[SYSTEM] The candidate is ready and waives the remaining preparation time. Tell them to begin their talk now, then remain silent while they speak."
     );
@@ -447,7 +450,11 @@ export function useExamOrchestrator(mode: SimMode): {
 
     // Examiner audio is suppressed during the monologue
     logCrumb("phase", { phase, screen });
-    liveRef.current.setExaminerMuted(phase === "part2_talk");
+    // Prep is muted too: the live model reliably ignores "stay silent during
+    // preparation" instructions (repeats the card, asks questions, announces
+    // timings) — structural silence beats prompt rules. The card was read
+    // BEFORE prep started; the invite unmutes at the 6-second mark.
+    liveRef.current.setExaminerMuted(phase === "part2_talk" || phase === "part2_prep");
 
     // Prep + talk countdowns with [SYSTEM] handoff messages
     let interval: ReturnType<typeof setInterval> | undefined;
@@ -468,6 +475,7 @@ export function useExamOrchestrator(mode: SimMode): {
         // starts the examiner is muted, so an invite requested at 0s is
         // never heard. Ask a few seconds early instead.
         if (phase === "part2_prep" && left === 6) {
+          liveRef.current.setExaminerMuted(false);
           liveRef.current.sendSystemText(
             "[SYSTEM] The preparation minute is nearly over. Tell the candidate to begin their talk now, then remain silent while they speak."
           );

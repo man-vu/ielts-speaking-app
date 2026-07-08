@@ -28,6 +28,8 @@ export interface BandScores {
 export interface ReportPayload {
   status: SimStatus;
   mode: SimMode;
+  /** Part 2/3 topic slug — enables "practice this topic again". */
+  part23Slug?: string | null;
   report: {
     band_scores: BandScores;
     criterion_breakdown: Record<string, string>;

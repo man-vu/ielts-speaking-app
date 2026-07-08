@@ -2,8 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import {
   Alert, Animated, Pressable, ScrollView, Share, StyleSheet, Text, View,
 } from "react-native";
-import { Stack, useLocalSearchParams } from "expo-router";
+import { Stack, router, useLocalSearchParams } from "expo-router";
 import { setAudioModeAsync } from "expo-audio";
+import * as Clipboard from "expo-clipboard";
 import * as Haptics from "expo-haptics";
 import { AudioScrubber } from "@/src/components/audio-scrubber";
 import { Assessing } from "@/src/components/assessing";
@@ -38,6 +39,14 @@ export default function ReportScreen() {
   const autoRescoreAttemptedRef = useRef(false);
   const stampAnim = useRef(new Animated.Value(0)).current;
   const stampedRef = useRef(false);
+  const [copiedPart, setCopiedPart] = useState<number | null>(null);
+
+  function copyTranscript(part: number, transcript: string) {
+    void Clipboard.setStringAsync(transcript).catch(() => {});
+    void Haptics.selectionAsync().catch(() => {});
+    setCopiedPart(part);
+    setTimeout(() => setCopiedPart((p) => (p === part ? null : p)), 1600);
+  }
 
   // The band arrives like a stamp coming down: scale + rotation settle with a
   // success haptic, once, when the scored report first renders.
@@ -246,7 +255,17 @@ export default function ReportScreen() {
         );
         return (
           <View key={p.part} style={styles.card}>
-            <Text style={styles.cardTitle}>Part {p.part} — band {p.band_scores.overall.toFixed(1)}</Text>
+            <View style={styles.cardHeader}>
+              <Text style={styles.cardTitle}>Part {p.part} — band {p.band_scores.overall.toFixed(1)}</Text>
+              <Pressable
+                onPress={() => copyTranscript(p.part, p.transcript)}
+                accessibilityRole="button"
+                accessibilityLabel={`Copy Part ${p.part} transcript`}
+                hitSlop={8}
+              >
+                <Text style={styles.copyLink}>{copiedPart === p.part ? "Copied ✓" : "Copy"}</Text>
+              </Pressable>
+            </View>
             <View style={styles.metricsRow}>
               {metrics.wpm !== null && (
                 <Text style={styles.metric}>{metrics.wpm} wpm</Text>
@@ -280,6 +299,20 @@ export default function ReportScreen() {
             {segments.some((s) => s.error) && (
               <Text style={styles.hint}>Tap a highlighted phrase to see the fix.</Text>
             )}
+            {p.part === 2 && payload.part23Slug ? (
+              <Pressable
+                style={styles.retryTopic}
+                onPress={() =>
+                  router.push({
+                    pathname: "/exam/part2",
+                    params: { slug: payload.part23Slug as string },
+                  })
+                }
+                accessibilityRole="button"
+              >
+                <Text style={styles.retryTopicText}>Practice this topic again</Text>
+              </Pressable>
+            ) : null}
           </View>
         );
       })}
@@ -336,6 +369,12 @@ const styles = StyleSheet.create({
     paddingVertical: 9, paddingHorizontal: 20,
   },
   shareText: { color: theme.info, fontSize: 13.5 },
+  copyLink: { color: theme.info, fontSize: 13 },
+  retryTopic: {
+    marginTop: 8, borderWidth: 1, borderColor: theme.brass, borderRadius: 10,
+    paddingVertical: 12, alignItems: "center", backgroundColor: theme.cardRaised,
+  },
+  retryTopicText: { fontFamily: theme.fontDisplay, color: theme.ink, fontSize: 14.5 },
   metricsRow: { flexDirection: "row", gap: 8 },
   metric: {
     fontFamily: theme.fontMono, fontSize: 11.5, color: theme.inkSecondary,
