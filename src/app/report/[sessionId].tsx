@@ -41,6 +41,29 @@ export default function ReportScreen() {
   const stampedRef = useRef(false);
   const [copiedPart, setCopiedPart] = useState<number | null>(null);
   const [band8Open, setBand8Open] = useState<number | null>(null);
+  const [band8Busy, setBand8Busy] = useState(false);
+
+  // Older reports were scored before Band 8 rewrites existed — generate them
+  // on demand from the stored transcripts and refresh the payload in place.
+  async function generateBand8() {
+    if (band8Busy) return;
+    setBand8Busy(true);
+    try {
+      const res = await apiFetch(`/api/sessions/${sessionId}/band8`, { method: "POST" });
+      const body = (await res.json()) as {
+        per_part?: NonNullable<ReportPayload["report"]>["per_part"];
+        error?: string;
+      };
+      if (!res.ok || !body.per_part) throw new Error(body.error ?? `HTTP ${res.status}`);
+      setPayload((prev) =>
+        prev?.report ? { ...prev, report: { ...prev.report, per_part: body.per_part! } } : prev
+      );
+    } catch (e) {
+      Alert.alert("Could not generate Band 8 answers", e instanceof Error ? e.message : "");
+    } finally {
+      setBand8Busy(false);
+    }
+  }
   const [discarding, setDiscarding] = useState(false);
 
   function copyTranscript(part: number, transcript: string) {
@@ -380,6 +403,19 @@ export default function ReportScreen() {
                 {band8Open === p.part && (
                   <Text style={styles.band8Text}>{p.model_answer.trim()}</Text>
                 )}
+              </View>
+            ) : p.transcript.trim().length > 20 ? (
+              <View style={styles.band8Box}>
+                <Pressable
+                  onPress={() => void generateBand8()}
+                  disabled={band8Busy}
+                  accessibilityRole="button"
+                  hitSlop={8}
+                >
+                  <Text style={[styles.band8Head, band8Busy && { opacity: 0.5 }]}>
+                    {band8Busy ? "Writing your Band 8 version…" : "★ Generate my answer at Band 8"}
+                  </Text>
+                </Pressable>
               </View>
             ) : null}
             {p.part === 2 && payload.part23Slug ? (
