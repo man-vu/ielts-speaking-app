@@ -286,10 +286,40 @@ export default function ReportScreen() {
       {r.per_part.map((p) => {
         const rec = payload.audio.find((a) => a.part === p.part);
         const metrics = speechMetrics(p.transcript, rec?.duration);
-        const segments = segmentTranscript(
-          p.transcript,
-          r.priority_errors.filter((e) => e.part === p.part)
-        );
+        const partErrors = r.priority_errors.filter((e) => e.part === p.part);
+        const segments = segmentTranscript(p.transcript, partErrors);
+        // Messenger-style thread when the interleaved dialogue was captured;
+        // candidate bubbles carry the same tap-to-fix highlighting (quotes are
+        // matched best-effort against the ASR text of each bubble).
+        const turns = (payload.dialogue ?? [])
+          .filter((d) => d.part === p.part && d.text.trim())
+          .slice(0, 80);
+        const renderHighlighted = (text: string) =>
+          segmentTranscript(text, partErrors).map((seg, i) =>
+            seg.error ? (
+              <Text
+                key={i}
+                style={seg.error.rank <= 2 ? styles.errorSpanHigh : styles.errorSpanMid}
+                onPress={() =>
+                  Alert.alert(
+                    `${seg.error!.error_type} — priority #${seg.error!.rank}`,
+                    `${seg.error!.description}\n\n✓ ${seg.error!.correction}`
+                  )
+                }
+              >
+                {seg.text}
+              </Text>
+            ) : (
+              <Text key={i}>{seg.text}</Text>
+            )
+          );
+        const anyHighlight = turns.length
+          ? turns.some(
+              (t) =>
+                t.role === "candidate" &&
+                segmentTranscript(t.text, partErrors).some((s) => s.error)
+            )
+          : segments.some((s) => s.error);
         return (
           <View key={p.part} style={styles.card}>
             <View style={styles.cardHeader}>
@@ -303,15 +333,6 @@ export default function ReportScreen() {
                 <Text style={styles.copyLink}>{copiedPart === p.part ? "Copied ✓" : "Copy"}</Text>
               </Pressable>
             </View>
-            {(payload.dialogue ?? [])
-              .filter((d) => d.role === "examiner" && d.part === p.part)
-              .slice(0, 12)
-              .map((d, i) => (
-                <Text key={i} style={styles.examinerLine}>
-                  <Text style={styles.examinerPrefix}>Examiner: </Text>
-                  {d.text.trim()}
-                </Text>
-              ))}
             <View style={styles.metricsRow}>
               {metrics.wpm !== null && (
                 <Text style={styles.metric}>{metrics.wpm} wpm</Text>
@@ -322,27 +343,26 @@ export default function ReportScreen() {
               </Text>
             </View>
             {rec && <AudioScrubber url={rec.url} />}
-            <Text style={styles.muted}>
-              {segments.map((seg, i) =>
-                seg.error ? (
-                  <Text
-                    key={i}
-                    style={seg.error.rank <= 2 ? styles.errorSpanHigh : styles.errorSpanMid}
-                    onPress={() =>
-                      Alert.alert(
-                        `${seg.error!.error_type} — priority #${seg.error!.rank}`,
-                        `${seg.error!.description}\n\n✓ ${seg.error!.correction}`
-                      )
-                    }
-                  >
-                    {seg.text}
-                  </Text>
-                ) : (
-                  <Text key={i}>{seg.text}</Text>
-                )
-              )}
-            </Text>
-            {segments.some((s) => s.error) && (
+            {turns.length > 0 ? (
+              <View style={styles.thread}>
+                {turns.map((d, i) =>
+                  d.role === "examiner" ? (
+                    <View key={i} style={[styles.bubble, styles.bubbleExaminer]}>
+                      <Text style={styles.bubbleExaminerText}>{d.text.trim()}</Text>
+                    </View>
+                  ) : (
+                    <View key={i} style={[styles.bubble, styles.bubbleCandidate]}>
+                      <Text style={styles.bubbleCandidateText}>
+                        {renderHighlighted(d.text.trim())}
+                      </Text>
+                    </View>
+                  )
+                )}
+              </View>
+            ) : (
+              <Text style={styles.muted}>{renderHighlighted(p.transcript)}</Text>
+            )}
+            {anyHighlight && (
               <Text style={styles.hint}>Tap a highlighted phrase to see the fix.</Text>
             )}
             {p.part === 2 && payload.part23Slug ? (
@@ -416,8 +436,20 @@ const styles = StyleSheet.create({
   },
   shareText: { color: theme.info, fontSize: 13.5 },
   copyLink: { color: theme.info, fontSize: 13 },
-  examinerLine: { color: theme.inkMuted, fontSize: 13, lineHeight: 19, fontStyle: "italic" },
-  examinerPrefix: { color: theme.brass, fontStyle: "normal", fontSize: 12 },
+  thread: { gap: 8 },
+  bubble: {
+    maxWidth: "84%", borderRadius: 16, paddingVertical: 9, paddingHorizontal: 13,
+  },
+  bubbleExaminer: {
+    alignSelf: "flex-start", borderBottomLeftRadius: 4,
+    backgroundColor: theme.cardRaised, borderWidth: 1, borderColor: theme.borderSoft,
+  },
+  bubbleCandidate: {
+    alignSelf: "flex-end", borderBottomRightRadius: 4,
+    backgroundColor: "rgba(201, 163, 92, 0.15)",
+  },
+  bubbleExaminerText: { color: theme.inkSecondary, fontSize: 14, lineHeight: 20 },
+  bubbleCandidateText: { color: theme.ink, fontSize: 14, lineHeight: 20 },
   retryTopic: {
     marginTop: 8, borderWidth: 1, borderColor: theme.brass, borderRadius: 10,
     paddingVertical: 12, alignItems: "center", backgroundColor: theme.cardRaised,
