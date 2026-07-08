@@ -15,6 +15,7 @@ import {
 } from "@/src/lib/audio/session";
 import { apiFetch } from "@/src/lib/api";
 import { logCrumb } from "@/src/lib/debug-log";
+import { clearPendingExam, persistPendingExam } from "@/src/lib/exam/recovery";
 import { reportError, track } from "@/src/lib/telemetry";
 import { useLiveSession, type LiveStatus } from "./use-live-session";
 import { useMicStream } from "./use-mic-stream";
@@ -141,6 +142,20 @@ export function useExamOrchestrator(mode: SimMode, part23Slug?: string): {
   }, []);
 
   const lastLoudAtRef = useRef(0);
+
+  // Crash-proofing: flush all recorded audio + session meta to disk every
+  // few seconds while the exam runs, so a crash / dead battery / force-quit
+  // never loses the candidate's answers (home screen offers recovery).
+  useEffect(() => {
+    if (screen !== "exam" || !session) return;
+    const flush = () =>
+      void persistPendingExam(session.sessionId, mode, getAccumulator());
+    const interval = setInterval(flush, 8000);
+    return () => {
+      clearInterval(interval);
+      flush();
+    };
+  }, [screen, session, mode]);
 
   /** Runs `fire` once the candidate has been quiet for ~900 ms (or after a
    *  6 s cap — silence detection must never wedge the exam). */
@@ -380,6 +395,7 @@ export function useExamOrchestrator(mode: SimMode, part23Slug?: string): {
       logCrumb("score_register", { status: res.status });
       if (res.ok || res.status === 503 || res.status === 409) {
         track("exam_completed", { mode, parts: parts.length });
+        void clearPendingExam();
         router.replace(`/report/${session.sessionId}`);
         return;
       }
@@ -399,6 +415,7 @@ export function useExamOrchestrator(mode: SimMode, part23Slug?: string): {
         .catch(() => null);
       if (probe && (probe.status === "scored" || probe.status === "completed")) {
         track("exam_completed", { mode, parts: parts.length, recovered: true });
+        void clearPendingExam();
         router.replace(`/report/${session.sessionId}`);
         return;
       }
@@ -457,6 +474,7 @@ export function useExamOrchestrator(mode: SimMode, part23Slug?: string): {
           ? "No audio was recorded, so there is nothing to score. Your quota was refunded."
           : "No audio was recorded, so there is nothing to score."
       );
+      void clearPendingExam();
       return setScreen("fatal");
     }
     await uploadRecordings();

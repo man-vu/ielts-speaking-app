@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Link, Stack, router, useFocusEffect } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -7,6 +7,10 @@ import { supabase } from "@/src/lib/supabase";
 import { SIM_MONTHLY_UNITS, UNIT_COSTS } from "@/src/lib/config";
 import type { SimMode } from "@/src/lib/types";
 import { ONBOARDING_KEY, Onboarding } from "@/src/components/onboarding";
+import { apiFetch } from "@/src/lib/api";
+import {
+  clearPendingExam, getPendingExam, salvagePendingExam, type PendingExamMeta,
+} from "@/src/lib/exam/recovery";
 import { ExaminerBadge } from "@/src/components/exam-stage";
 import { Skeleton } from "@/src/components/skeleton";
 import { overline, theme } from "@/src/lib/theme";
@@ -31,6 +35,40 @@ function currentMonthStart(): string {
 export default function Home() {
   const [unitsLine, setUnitsLine] = useState("");
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [pending, setPending] = useState<PendingExamMeta | null>(null);
+  const [salvaging, setSalvaging] = useState(false);
+
+  function recoverPending(meta: PendingExamMeta) {
+    if (salvaging) return;
+    setSalvaging(true);
+    salvagePendingExam(meta)
+      .then((sessionId) => {
+        setPending(null);
+        router.push(`/report/${sessionId}`);
+      })
+      .catch((e: unknown) => {
+        Alert.alert(
+          "Recovery failed",
+          e instanceof Error ? e.message : "Check your connection and try again."
+        );
+      })
+      .finally(() => setSalvaging(false));
+  }
+
+  function discardPending(meta: PendingExamMeta) {
+    Alert.alert("Discard this recording?", "The unfinished exam's audio will be deleted.", [
+      { text: "Keep it", style: "cancel" },
+      {
+        text: "Discard",
+        style: "destructive",
+        onPress: () => {
+          void apiFetch(`/api/sessions/${meta.sessionId}/abort`, { method: "POST" }).catch(() => {});
+          void clearPendingExam();
+          setPending(null);
+        },
+      },
+    ]);
+  }
 
   useEffect(() => {
     void AsyncStorage.getItem(ONBOARDING_KEY).then((done) => {
@@ -41,6 +79,9 @@ export default function Home() {
   useFocusEffect(
     useCallback(() => {
       let cancelled = false;
+      void getPendingExam().then((meta) => {
+        if (!cancelled) setPending(meta);
+      });
       void (async () => {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
@@ -121,6 +162,38 @@ export default function Home() {
           </Pressable>
         </View>
 
+        {pending && (
+          <View style={styles.recoveryCard}>
+            <Text style={[overline, styles.recoveryLabel]}>Unfinished exam recovered</Text>
+            <Text style={styles.recoveryBody}>
+              The app closed before scoring, but your recording
+              {pending.parts.length > 1 ? "s are" : " is"} safe — Part
+              {pending.parts.length > 1 ? "s " : " "}
+              {pending.parts.map((p) => p.part).join(", ")},{" "}
+              {Math.max(1, Math.round((Date.now() - pending.updatedAt) / 60000))} min ago.
+            </Text>
+            <View style={styles.recoveryActions}>
+              <Pressable
+                style={({ pressed }) => [styles.recoveryScore, pressed && styles.pressed]}
+                onPress={() => recoverPending(pending)}
+                disabled={salvaging}
+                accessibilityRole="button"
+              >
+                <Text style={styles.recoveryScoreText}>
+                  {salvaging ? "Uploading…" : "Score it"}
+                </Text>
+              </Pressable>
+              <Pressable
+                onPress={() => discardPending(pending)}
+                accessibilityRole="button"
+                hitSlop={8}
+              >
+                <Text style={styles.recoveryDiscard}>Discard</Text>
+              </Pressable>
+            </View>
+          </View>
+        )}
+
         <View style={styles.practiceBlock}>
           <Text style={[overline, styles.practiceLabel]}>Practice a single part</Text>
           <View style={styles.practiceRow}>
@@ -187,6 +260,19 @@ const styles = StyleSheet.create({
   },
   secondaryText: { fontFamily: theme.fontDisplay, fontSize: 16, color: theme.ink },
   pressed: { transform: [{ scale: 0.98 }] },
+  recoveryCard: {
+    marginTop: 8, gap: 8, padding: 16, borderRadius: 12,
+    borderWidth: 1, borderColor: theme.brass, backgroundColor: theme.cardRaised,
+  },
+  recoveryLabel: { color: theme.brass },
+  recoveryBody: { color: theme.inkSecondary, fontSize: 13.5, lineHeight: 20 },
+  recoveryActions: { flexDirection: "row", alignItems: "center", gap: 20, marginTop: 4 },
+  recoveryScore: {
+    backgroundColor: theme.brass, borderRadius: 8,
+    paddingVertical: 10, paddingHorizontal: 22,
+  },
+  recoveryScoreText: { fontFamily: theme.fontDisplay, fontSize: 14.5, color: theme.bg },
+  recoveryDiscard: { color: theme.stampRed, fontSize: 13.5 },
   practiceBlock: { gap: 10, marginTop: 8 },
   practiceLabel: { color: theme.inkMuted },
   practiceRow: { flexDirection: "row", gap: 10 },
