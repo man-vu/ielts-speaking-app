@@ -271,6 +271,12 @@ export function useExamOrchestrator(mode: SimMode, part23Slug?: string): {
       );
       logCrumb("kickoff_sent");
       dispatch({ type: "CONNECTED" });
+      // Chat mode has no exam flow, so the model never calls advance_part —
+      // but recording only runs inside part phases. Advance deterministically
+      // (a chat session once recorded NOTHING because it sat in intro).
+      if (mode === "chat") {
+        dispatch({ type: "TOOL_CALL", name: "advance_part", toPart: 1 });
+      }
     } catch (err) {
       liveRef.current.disconnect();
       micStream.stop();
