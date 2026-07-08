@@ -128,7 +128,7 @@ export function useLiveSession(handlers: LiveHandlers) {
           realtimeInputConfig: {
             automaticActivityDetection: {
               endOfSpeechSensitivity: EndSensitivity.END_SENSITIVITY_LOW,
-              silenceDurationMs: 1500,
+              silenceDurationMs: 2000,
             },
           },
         },

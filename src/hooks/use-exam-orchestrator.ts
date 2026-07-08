@@ -79,7 +79,11 @@ export function useExamOrchestrator(mode: SimMode, part23Slug?: string): {
       } else if (name === "start_part2_prep") {
         dispatch({ type: "TOOL_CALL", name: "start_part2_prep" });
       } else if (name === "end_exam") {
-        dispatch({ type: "TOOL_CALL", name: "end_exam" });
+        // Quiet-gate: the model often calls end_exam while the candidate is
+        // still mid-sentence (its VAD mistook a breath for the end of the
+        // answer). Don't cut the mic mid-word — wait until the candidate has
+        // actually been quiet for a beat (cap 6 s), then end.
+        deferUntilQuiet(() => dispatch({ type: "TOOL_CALL", name: "end_exam" }));
       }
     },
     onResumptionHandle(handle) {
@@ -117,20 +121,42 @@ export function useExamOrchestrator(mode: SimMode, part23Slug?: string): {
   // streams nor records — speaker-mode echo can't loop back into the model
   // (spurious interruptions) or contaminate the scored WAV.
   const onChunk = useCallback((pcm: Int16Array) => {
-    // Half-duplex gate — EXCEPT during the Part 2 long turn: the examiner is
-    // muted there, so echo is structurally impossible, and a stale playback
-    // queue must never cost the candidate their opening words (a real run
-    // lost 80+ seconds of a talk to this gate).
-    if (stateRef.current.phase !== "part2_talk" && liveRef.current.isExaminerSpeaking()) return;
-    // Coarse RMS (every 8th sample) drives the on-screen mic meter.
+    // Coarse RMS (every 8th sample) — computed BEFORE the half-duplex gate so
+    // micLevel is a true voice-activity signal (the end-exam quiet-gate needs
+    // it even while examiner audio is draining).
     let sum = 0;
     for (let i = 0; i < pcm.length; i += 8) {
       const v = pcm[i] / 0x8000;
       sum += v * v;
     }
     micLevelRef.current = Math.min(1, Math.sqrt(sum / (pcm.length / 8)) * 4);
+    if (micLevelRef.current > 0.08) lastLoudAtRef.current = Date.now();
+    // Half-duplex gate — EXCEPT during the Part 2 long turn: the examiner is
+    // muted there, so echo is structurally impossible, and a stale playback
+    // queue must never cost the candidate their opening words (a real run
+    // lost 80+ seconds of a talk to this gate).
+    if (stateRef.current.phase !== "part2_talk" && liveRef.current.isExaminerSpeaking()) return;
     liveRef.current.sendAudioChunk(pcm);
     if (currentPartRef.current) getAccumulator().add(currentPartRef.current, pcm);
+  }, []);
+
+  const lastLoudAtRef = useRef(0);
+
+  /** Runs `fire` once the candidate has been quiet for ~900 ms (or after a
+   *  6 s cap — silence detection must never wedge the exam). */
+  const deferUntilQuiet = useCallback((fire: () => void) => {
+    const started = Date.now();
+    const tick = () => {
+      const quietFor = Date.now() - lastLoudAtRef.current;
+      const waited = Date.now() - started;
+      if (quietFor > 900 || waited > 6000) {
+        if (waited > 300) logCrumb("end_deferred", { waitedMs: waited });
+        fire();
+        return;
+      }
+      setTimeout(tick, 200);
+    };
+    tick();
   }, []);
 
   // Publish voice state (mic level + examiner-speaking) at UI cadence —
