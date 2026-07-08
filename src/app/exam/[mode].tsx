@@ -3,6 +3,7 @@ import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-nati
 import { Stack, useLocalSearchParams, useNavigation } from "expo-router";
 import { useKeepAwake } from "expo-keep-awake";
 import * as Haptics from "expo-haptics";
+import { PART2_TALK_SECONDS } from "@/src/lib/config";
 import { useExamOrchestrator } from "@/src/hooks/use-exam-orchestrator";
 import { Preflight } from "@/src/components/preflight";
 import { CueCard } from "@/src/components/cue-card";
@@ -189,6 +190,16 @@ export default function ExamScreen() {
               <Text style={styles.topicText}>{cueCardTopic}</Text>
             </View>
           ) : null}
+          {(() => {
+            const elapsed = PART2_TALK_SECONDS - (exam.countdown ?? PART2_TALK_SECONDS);
+            if (elapsed < 20 || exam.talkWords < 15) return null;
+            return (
+              <View style={styles.chipRow}>
+                <Text style={styles.chip}>{Math.round(exam.talkWords / (elapsed / 60))} wpm</Text>
+                <Text style={styles.chip}>{exam.talkWords} words</Text>
+              </View>
+            );
+          })()}
           {notes.length > 0 && <NotesPad value={notes} onChange={setNotes} editable={false} />}
           <Pressable
             style={styles.finishEarly}
@@ -214,6 +225,36 @@ export default function ExamScreen() {
           />
         </>
       )}
+
+      {exam.phase === "part1" && mode !== "chat" && exam.lastExchange.examiner ? (
+        <View style={styles.questionCard}>
+          <Text style={styles.questionLabel}>
+            {exam.questionCount > 0 ? `Question ${exam.questionCount}` : "Question"}
+          </Text>
+          <Text style={styles.questionText}>{exam.lastExchange.examiner}</Text>
+        </View>
+      ) : null}
+
+      {(exam.phase === "part3" || (mode === "chat" && exam.phase === "part1")) &&
+        exam.lastExchange.examiner ? (
+        <View style={styles.exchange}>
+          <View style={styles.exchangeRow}>
+            <View style={styles.exchangeAvatar}>
+              <Text style={styles.exchangeAvatarText}>{examinerInitial}</Text>
+            </View>
+            <View style={styles.exchangeBubbleExaminer}>
+              <Text style={styles.exchangeExaminerText}>{exam.lastExchange.examiner}</Text>
+            </View>
+          </View>
+          {exam.lastExchange.candidate ? (
+            <View style={[styles.exchangeRow, styles.exchangeRowYou]}>
+              <View style={styles.exchangeBubbleYou}>
+                <Text style={styles.exchangeYouText}>{exam.lastExchange.candidate}</Text>
+              </View>
+            </View>
+          ) : null}
+        </View>
+      ) : null}
 
       {!inPart2 && exam.phase !== "ended" && (
         <View style={styles.stageWrap}>
@@ -272,6 +313,40 @@ const styles = StyleSheet.create({
   },
   finishEarlyText: { fontFamily: theme.fontDisplay, color: theme.stampRed, fontSize: 15 },
   stageWrap: { flex: 1, justifyContent: "center", paddingVertical: 20 },
+  questionCard: {
+    backgroundColor: theme.cardRaised, borderWidth: 1, borderColor: theme.border,
+    borderRadius: 12, padding: 16, gap: 8,
+  },
+  questionLabel: {
+    fontSize: 11, letterSpacing: 1.6, textTransform: "uppercase", color: theme.inkMuted,
+  },
+  questionText: {
+    fontFamily: theme.fontDisplay, fontSize: 17, lineHeight: 25, color: theme.ink,
+  },
+  exchange: { gap: 10 },
+  exchangeRow: { flexDirection: "row", gap: 10, alignItems: "flex-start" },
+  exchangeRowYou: { justifyContent: "flex-end" },
+  exchangeAvatar: {
+    width: 34, height: 34, borderRadius: 17, backgroundColor: theme.cardRaised,
+    borderWidth: 1, borderColor: theme.brass, alignItems: "center", justifyContent: "center",
+  },
+  exchangeAvatarText: { fontFamily: theme.fontDisplay, fontSize: 15, color: theme.brass },
+  exchangeBubbleExaminer: {
+    flex: 1, backgroundColor: theme.card, borderWidth: 1, borderColor: theme.border,
+    borderRadius: 14, borderTopLeftRadius: 4, padding: 12,
+  },
+  exchangeExaminerText: { fontSize: 13.5, lineHeight: 20, color: theme.ink },
+  exchangeBubbleYou: {
+    maxWidth: "84%", backgroundColor: theme.cardRaised, borderWidth: 1,
+    borderColor: theme.borderSoft, borderRadius: 14, borderBottomRightRadius: 4, padding: 12,
+  },
+  exchangeYouText: { fontSize: 13.5, lineHeight: 20, color: theme.inkSecondary },
+  chipRow: { flexDirection: "row", gap: 8, justifyContent: "center" },
+  chip: {
+    fontFamily: theme.fontMono, fontSize: 12, color: theme.inkSecondary,
+    backgroundColor: theme.card, borderWidth: 1, borderColor: theme.border,
+    borderRadius: 999, paddingVertical: 5, paddingHorizontal: 12, overflow: "hidden",
+  },
   button: {
     backgroundColor: theme.cardRaised, borderWidth: 1, borderColor: theme.brass,
     borderRadius: 10, paddingVertical: 14, paddingHorizontal: 28, alignItems: "center",

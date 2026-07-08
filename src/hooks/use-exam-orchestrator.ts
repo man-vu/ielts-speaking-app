@@ -35,6 +35,11 @@ export function useExamOrchestrator(mode: SimMode, part23Slug?: string): {
   examinerSpeaking: boolean;
   startTalkEarly(): void;
   restart(): void;
+  /** Examiner's current question + the answer in progress (live ASR). */
+  lastExchange: { examiner: string; candidate: string };
+  questionCount: number;
+  /** Candidate words spoken so far in the Part 2 long turn (live wpm). */
+  talkWords: number;
   begin(): Promise<void>;
   endEarly(): void;
   retryUpload(): Promise<void>;
@@ -119,8 +124,30 @@ export function useExamOrchestrator(mode: SimMode, part23Slug?: string): {
       if (last && last.role === role && last.part === part) last.text += text;
       else log.push({ role, text, part });
       if (log.length > 400) log.shift();
+      // Live exchange for the exam screen: the examiner's current question
+      // and the answer in progress (design screens 03/06).
+      let ex = "", ca = "";
+      for (let i = log.length - 1; i >= 0; i--) {
+        const t = log[i];
+        if (t.part !== part) break;
+        if (!ex && t.role === "examiner") ex = t.text;
+        if (!ca && t.role === "candidate" && !ex) ca = t.text;
+        if (ex) break;
+      }
+      setLastExchange({ examiner: ex.trim(), candidate: ca.trim() });
+      setQuestionCount(log.filter((t) => t.part === part && t.role === "examiner").length);
+      if (role === "candidate" && stateRef.current.phase === "part2_talk") {
+        const words = text.split(/\s+/).filter(Boolean).length;
+        if (words > 0) setTalkWords((n) => n + words);
+      }
     },
   });
+
+  const [lastExchange, setLastExchange] = useState<{ examiner: string; candidate: string }>({
+    examiner: "", candidate: "",
+  });
+  const [questionCount, setQuestionCount] = useState(0);
+  const [talkWords, setTalkWords] = useState(0);
 
   const dialogueRef = useRef<{ role: "examiner" | "candidate"; text: string; part: 1 | 2 | 3 | null }[]>([]);
 
@@ -650,6 +677,9 @@ export function useExamOrchestrator(mode: SimMode, part23Slug?: string): {
     endEarly,
     startTalkEarly,
     restart,
+    lastExchange,
+    questionCount,
+    talkWords,
     retryUpload: uploadRecordings,
     sessionId: session?.sessionId ?? null,
   };
