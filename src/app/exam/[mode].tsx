@@ -108,6 +108,8 @@ export default function ExamScreen() {
     exam.phase === "part2_prep" || exam.phase === "part2_talk" || exam.phase === "part2_rounding";
   const connecting = exam.phase === "connecting" || exam.liveStatus !== "live";
   const cueCardTopic = exam.display?.cueCard?.split("\n")[0] ?? "";
+  const examinerName = exam.display?.examiner?.name ?? "Alex";
+  const examinerInitial = exam.display?.examiner?.initial ?? "A";
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -161,7 +163,7 @@ export default function ExamScreen() {
             <Text style={styles.talkClock}>
               {exam.countdown !== null ? fmt(exam.countdown) : "–:––"}
             </Text>
-            <Text style={styles.talkHint}>Keep going until Alex stops you</Text>
+            <Text style={styles.talkHint}>Keep going until {examinerName} stops you</Text>
           </View>
           <View style={styles.meterCenter}>
             <LiveMeter level={exam.micLevel} height={58} />
@@ -192,6 +194,8 @@ export default function ExamScreen() {
             connecting={connecting}
             examinerSpeaking={exam.examinerSpeaking}
             micLevel={exam.micLevel}
+            name={examinerName}
+            initial={examinerInitial}
           />
         </>
       )}
@@ -202,6 +206,8 @@ export default function ExamScreen() {
             connecting={connecting}
             examinerSpeaking={exam.examinerSpeaking}
             micLevel={exam.micLevel}
+            name={examinerName}
+            initial={examinerInitial}
           />
         </View>
       )}

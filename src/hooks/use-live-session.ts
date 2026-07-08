@@ -20,6 +20,8 @@ export interface ConnectOpts {
   token: string;
   model: string;
   resumeHandle?: string;
+  /** Prebuilt Gemini voice for the examiner persona (e.g. "Aoede"). */
+  voiceName?: string;
 }
 
 export function useLiveSession(handlers: LiveHandlers) {
@@ -121,6 +123,9 @@ export function useLiveSession(handlers: LiveHandlers) {
           responseModalities: [Modality.AUDIO],
           contextWindowCompression: { slidingWindow: {} }, // removes 15-min cap
           sessionResumption: { handle: opts.resumeHandle ?? undefined },
+          ...(opts.voiceName
+            ? { speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: opts.voiceName } } } }
+            : {}),
           // IELTS answers contain natural thinking pauses — the default VAD
           // declares end-of-turn too eagerly and the examiner cuts in
           // mid-answer. Low sensitivity + a longer silence window lets the

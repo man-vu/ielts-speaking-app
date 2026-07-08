@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { router } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { File, Paths } from "expo-file-system";
 import * as LegacyFileSystem from "expo-file-system/legacy";
 import { AudioManager } from "react-native-audio-api";
@@ -216,10 +217,12 @@ export function useExamOrchestrator(mode: SimMode, part23Slug?: string): {
     try {
       await configureExamAudioSession();
       setScreen("exam");
+      const examiner =
+        (await AsyncStorage.getItem("examiner-choice-v1").catch(() => null)) ?? "alex";
       const res = await apiFetch("/api/live-token", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(part23Slug ? { mode, part23Slug } : { mode }),
+        body: JSON.stringify({ mode, examiner, ...(part23Slug ? { part23Slug } : {}) }),
       });
       const body = (await res.json()) as TokenResponse & { error?: string };
       if (!res.ok) throw new Error(body.error ?? `HTTP ${res.status}`);
@@ -233,7 +236,11 @@ export function useExamOrchestrator(mode: SimMode, part23Slug?: string): {
         return;
       }
       setSession(body);
-      await live.connect({ token: body.token, model: body.model });
+      await live.connect({
+        token: body.token,
+        model: body.model,
+        voiceName: body.display.examiner?.voice,
+      });
       if (endedRef.current) {
         liveRef.current.disconnect();
         micStream.stop();
@@ -289,6 +296,7 @@ export function useExamOrchestrator(mode: SimMode, part23Slug?: string): {
       if (!res.ok) throw new Error(body.error ?? "resume refused");
       await liveRef.current.connect({
         token: body.token, model: body.model, resumeHandle: resumeHandleRef.current,
+        voiceName: body.display.examiner?.voice,
       });
       setBanner("");
       liveRef.current.setExaminerMuted(

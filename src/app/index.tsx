@@ -125,8 +125,8 @@ export default function Home() {
         </View>
 
         <Text style={styles.intro}>
-          A face-to-face style assessment in three parts. Your examiner, Alex,
-          will guide you throughout.
+          A face-to-face style assessment in three parts. Your examiner will
+          guide you throughout — choose who examines you at the sound check.
         </Text>
 
         <View style={styles.parts}>

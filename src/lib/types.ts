@@ -8,6 +8,7 @@ export interface ExamDisplayData {
   part1TopicNames: string[];
   cueCard: string | null;
   part3Title: string | null;
+  examiner?: { key: string; name: string; initial: string; voice: string };
 }
 
 export interface TokenResponse {

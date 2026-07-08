@@ -10,7 +10,9 @@ function fmt(seconds: number): string {
 }
 
 /** Alex's presence: monogram disc in breathing rings (design screens 01/03/07). */
-export function ExaminerBadge({ speaking, size = 120 }: { speaking: boolean; size?: number }) {
+export function ExaminerBadge({
+  speaking, size = 120, initial = "A",
+}: { speaking: boolean; size?: number; initial?: string }) {
   const breath = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -56,7 +58,7 @@ export function ExaminerBadge({ speaking, size = 120 }: { speaking: boolean; siz
         ]}
       />
       <View style={[styles.disc, { width: disc, height: disc, borderRadius: disc / 2 }]}>
-        <Text style={[styles.glyph, { fontSize: Math.round(disc * 0.43) }]}>A</Text>
+        <Text style={[styles.glyph, { fontSize: Math.round(disc * 0.43) }]}>{initial}</Text>
       </View>
     </View>
   );
@@ -78,12 +80,16 @@ interface ExamStageProps {
   connecting: boolean;
   examinerSpeaking: boolean;
   micLevel: number;
+  name?: string;
+  initial?: string;
 }
 
 /** The interview/discussion stage (design screens 03/06): Alex with a live
  *  status line; while the floor is the candidate's, an answering panel with
  *  an elapsed clock and the live meter. */
-export function ExamStage({ connecting, examinerSpeaking, micLevel }: ExamStageProps) {
+export function ExamStage({
+  connecting, examinerSpeaking, micLevel, name = "Alex", initial = "A",
+}: ExamStageProps) {
   const [elapsed, setElapsed] = useState(0);
   const answering = !connecting && !examinerSpeaking;
 
@@ -99,9 +105,9 @@ export function ExamStage({ connecting, examinerSpeaking, micLevel }: ExamStageP
   return (
     <View style={styles.stage}>
       <View style={styles.examinerRow}>
-        <ExaminerBadge speaking={examinerSpeaking} size={96} />
+        <ExaminerBadge speaking={examinerSpeaking} size={96} initial={initial} />
         <View style={styles.examinerText}>
-          <Text style={styles.name}>Alex</Text>
+          <Text style={styles.name}>{name}</Text>
           <Text
             style={[
               styles.statusLine,

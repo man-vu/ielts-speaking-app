@@ -1,7 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 import { Animated, Easing, Pressable, StyleSheet, Text, View } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { hasMicPermission, requestMicPermission } from "@/src/lib/audio/session";
 import { overline, theme } from "@/src/lib/theme";
+
+const EXAMINER_KEY = "examiner-choice-v1";
+const EXAMINER_CHOICES = [
+  { key: "alex", name: "Alex", tagline: "Warm & steady" },
+  { key: "priya", name: "Priya", tagline: "Brisk & precise" },
+  { key: "marcus", name: "Marcus", tagline: "Formal & reserved" },
+];
 
 const WAVE_BARS = [0, 0.09, 0.18, 0.3, 0.42, 0.3, 0.18, 0.09, 0.24, 0.5, 0.36];
 
@@ -72,6 +80,18 @@ export function Preflight({ onReady }: { onReady(): void }) {
   const [granted, setGranted] = useState(false);
   const [error, setError] = useState("");
   const [starting, setStarting] = useState(false);
+  const [examiner, setExaminer] = useState("alex");
+
+  useEffect(() => {
+    void AsyncStorage.getItem(EXAMINER_KEY).then((k) => {
+      if (k) setExaminer(k);
+    });
+  }, []);
+
+  function pickExaminer(key: string) {
+    setExaminer(key);
+    void AsyncStorage.setItem(EXAMINER_KEY, key).catch(() => {});
+  }
 
   // iOS only ever prompts once — if permission already exists, skip straight
   // to "Begin exam" instead of demanding a pointless tap every session.
@@ -105,6 +125,26 @@ export function Preflight({ onReady }: { onReady(): void }) {
         <View style={styles.chips}>
           <Text style={styles.chip}>input · iphone mic</Text>
           <Text style={styles.chip}>{granted ? "mic · ready" : "mic · off"}</Text>
+        </View>
+      </View>
+
+      <View style={styles.examinerBlock}>
+        <Text style={[overline, styles.examinerLabel]}>Your examiner</Text>
+        <View style={styles.examinerRow}>
+          {EXAMINER_CHOICES.map((c) => (
+            <Pressable
+              key={c.key}
+              style={[styles.examinerChip, examiner === c.key && styles.examinerChipOn]}
+              onPress={() => pickExaminer(c.key)}
+              accessibilityRole="button"
+              accessibilityLabel={`Examiner ${c.name}, ${c.tagline}`}
+            >
+              <Text style={[styles.examinerName, examiner === c.key && styles.examinerNameOn]}>
+                {c.name}
+              </Text>
+              <Text style={styles.examinerTagline}>{c.tagline}</Text>
+            </Pressable>
+          ))}
         </View>
       </View>
 
@@ -164,6 +204,17 @@ const styles = StyleSheet.create({
     backgroundColor: theme.cardRaised, borderRadius: 6,
     paddingVertical: 4, paddingHorizontal: 9, overflow: "hidden",
   },
+  examinerBlock: { gap: 8 },
+  examinerLabel: { color: theme.inkMuted },
+  examinerRow: { flexDirection: "row", gap: 8 },
+  examinerChip: {
+    flex: 1, alignItems: "center", gap: 2, paddingVertical: 10, paddingHorizontal: 4,
+    borderRadius: 10, borderWidth: 1, borderColor: theme.border, backgroundColor: theme.card,
+  },
+  examinerChipOn: { borderColor: theme.brass, backgroundColor: theme.cardRaised },
+  examinerName: { fontFamily: theme.fontDisplay, fontSize: 15, color: theme.inkSecondary },
+  examinerNameOn: { color: theme.ink },
+  examinerTagline: { fontSize: 10.5, color: theme.inkMuted },
   checklist: { gap: 11 },
   checkRow: { flexDirection: "row", alignItems: "center", gap: 10 },
   checkDone: {
