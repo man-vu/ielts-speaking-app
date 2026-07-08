@@ -24,12 +24,20 @@ describe("full exam flow", () => {
     expect(s.phase).toBe("ended");
   });
 
-  it("allows examiner to skip rounding-off (advance_part 3 from part2_talk)", () => {
+  it("protects the long turn: no tool call can leave part2_talk (timer only)", () => {
+    // A live model that mistakes a thinking pause for the end of the talk
+    // must not be able to advance or end the exam mid-talk.
     let s = run(initialExamState("full"), [
       { type: "CONNECTED" },
       { type: "TOOL_CALL", name: "advance_part", toPart: 1 },
       { type: "TOOL_CALL", name: "start_part2_prep" },
       { type: "PREP_TIMER_DONE" },
+      { type: "TOOL_CALL", name: "advance_part", toPart: 3 },
+      { type: "TOOL_CALL", name: "end_exam" },
+    ]);
+    expect(s.phase).toBe("part2_talk");
+    s = run(s, [
+      { type: "TALK_TIMER_DONE" },
       { type: "TOOL_CALL", name: "advance_part", toPart: 3 },
     ]);
     expect(s.phase).toBe("part3");

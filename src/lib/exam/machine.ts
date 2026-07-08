@@ -89,7 +89,10 @@ export function examReducer(state: ExamState, event: ExamEvent): ExamState {
           if (
             event.toPart === 3 &&
             ((phase === "intro" && mode === "part3") ||
-              (mode === "full" && (phase === "part2_talk" || phase === "part2_rounding")))
+              // NOT from part2_talk: the live model treats any thinking pause
+              // as "talk finished" and tries to advance — the candidate's two
+              // minutes belong to the timer, not the model's turn-taking.
+              (mode === "full" && phase === "part2_rounding"))
           ) {
             return to("part3");
           }
@@ -103,12 +106,13 @@ export function examReducer(state: ExamState, event: ExamEvent): ExamState {
           }
           return state;
         case "end_exam":
-          // Legal only from a terminal-eligible phase for the mode.
+          // Legal only from a terminal-eligible phase for the mode. Never
+          // from part2_talk: a model that mistakes a pause for the end of
+          // the talk must not be able to send the exam to marking (observed
+          // on device: 14 s into a 2-minute talk).
           if (phase === "part3") return to("ended");
           if (mode === "part1" && phase === "part1") return to("ended");
-          if (mode === "part2" && (phase === "part2_talk" || phase === "part2_rounding")) {
-            return to("ended");
-          }
+          if (mode === "part2" && phase === "part2_rounding") return to("ended");
           return state;
       }
   }
