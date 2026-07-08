@@ -40,6 +40,7 @@ export default function ReportScreen() {
   const stampAnim = useRef(new Animated.Value(0)).current;
   const stampedRef = useRef(false);
   const [copiedPart, setCopiedPart] = useState<number | null>(null);
+  const [discarding, setDiscarding] = useState(false);
 
   function copyTranscript(part: number, transcript: string) {
     void Clipboard.setStringAsync(transcript).catch(() => {});
@@ -127,16 +128,52 @@ export default function ReportScreen() {
   if (!payload) {
     return (
       <View style={styles.center}>
+        <Stack.Screen options={{ title: "Your report" }} />
         <Text style={error ? styles.error : styles.muted}>{error || "Loading…"}</Text>
       </View>
     );
   }
   if (payload.status === "aborted") {
-    return <View style={styles.center}><Text style={styles.muted}>This session was aborted before scoring.</Text></View>;
+    return (
+      <View style={styles.center}>
+        <Stack.Screen options={{ title: "Your report" }} />
+        <Text style={styles.muted}>This session was aborted before scoring.</Text>
+      </View>
+    );
+  }
+  // A session still "in_progress" here was never finished (the app died or
+  // the exam was abandoned) — nothing will ever arrive, so an eternal
+  // Assessing screen would be a lie. Offer to discard instead.
+  if (payload.status === "in_progress") {
+    return (
+      <View style={styles.center}>
+        <Stack.Screen options={{ title: "Your report" }} />
+        <Text style={styles.muted}>
+          This exam was never finished, so there is nothing to score.
+        </Text>
+        <Pressable
+          style={styles.button}
+          accessibilityRole="button"
+          disabled={discarding}
+          onPress={() => {
+            if (discarding) return;
+            setDiscarding(true);
+            void apiFetch(`/api/sessions/${sessionId}/abort`, { method: "POST" })
+              .catch(() => {})
+              .finally(() => router.back());
+          }}
+        >
+          <Text style={styles.buttonText}>
+            {discarding ? "Discarding…" : "Discard this session"}
+          </Text>
+        </Pressable>
+      </View>
+    );
   }
   if (payload.status !== "scored" || !payload.report) {
     return (
       <View style={styles.assessingWrap}>
+        <Stack.Screen options={{ title: "Your report" }} />
         <Assessing />
         {(error || rescoreError || payload.status === "completed") && (
           <View style={styles.assessingFooter}>
