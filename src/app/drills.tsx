@@ -6,6 +6,7 @@ import * as Haptics from "expo-haptics";
 import { supabase } from "@/src/lib/supabase";
 import { track } from "@/src/lib/telemetry";
 import { Loading } from "@/src/components/loading";
+import { HallBackdrop } from "@/src/components/hall-backdrop";
 import { overline, theme } from "@/src/lib/theme";
 
 const DONE_KEY = "drills-done-v1";
@@ -76,6 +77,7 @@ export default function Drills() {
 
   return (
     <View style={styles.container}>
+      <HallBackdrop />
       <Stack.Screen options={{ title: "Practice drills" }} />
       <FlatList
         data={due}

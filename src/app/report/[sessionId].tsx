@@ -9,6 +9,7 @@ import * as Haptics from "expo-haptics";
 import { AudioScrubber } from "@/src/components/audio-scrubber";
 import { Assessing } from "@/src/components/assessing";
 import { Loading } from "@/src/components/loading";
+import { HallBackdrop } from "@/src/components/hall-backdrop";
 import { apiFetch } from "@/src/lib/api";
 import { segmentTranscript, speechMetrics } from "@/src/lib/report-insights";
 import { track } from "@/src/lib/telemetry";
@@ -185,6 +186,7 @@ export default function ReportScreen() {
   if (!payload) {
     return (
       <View style={styles.center}>
+        <HallBackdrop />
         <Stack.Screen options={{ title: "Your report" }} />
         {error ? (
           <Text style={styles.error}>{error}</Text>
@@ -197,6 +199,7 @@ export default function ReportScreen() {
   if (payload.status === "aborted") {
     return (
       <View style={styles.center}>
+        <HallBackdrop />
         <Stack.Screen options={{ title: "Your report" }} />
         <Text style={styles.muted}>This session was aborted before scoring.</Text>
       </View>
@@ -208,6 +211,7 @@ export default function ReportScreen() {
   if (payload.status === "in_progress") {
     return (
       <View style={styles.center}>
+        <HallBackdrop />
         <Stack.Screen options={{ title: "Your report" }} />
         <Text style={styles.muted}>
           This exam was never finished, so there is nothing to score.
@@ -234,6 +238,7 @@ export default function ReportScreen() {
   if (payload.status !== "scored" || !payload.report) {
     return (
       <View style={styles.assessingWrap}>
+        <HallBackdrop />
         <Stack.Screen options={{ title: "Your report" }} />
         <Assessing />
         {(error || rescoreError || payload.status === "completed") && (
@@ -258,6 +263,8 @@ export default function ReportScreen() {
 
   const r = payload.report;
   return (
+    <View style={{ flex: 1 }}>
+      <HallBackdrop />
     <ScrollView contentContainerStyle={styles.container}>
       <Stack.Screen options={{ title: "Your report" }} />
       <View style={styles.hero}>
@@ -546,6 +553,7 @@ export default function ReportScreen() {
         );
       })}
     </ScrollView>
+    </View>
   );
 }
 

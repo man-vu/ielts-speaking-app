@@ -1,8 +1,6 @@
 import { useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { Stack, router, useSegments, type ErrorBoundaryProps } from "expo-router";
-import { LinearGradient } from "expo-linear-gradient";
-import { DarkTheme, ThemeProvider } from "@react-navigation/native";
 import { useFonts } from "expo-font";
 import {
   Fraunces_600SemiBold,
@@ -107,44 +105,19 @@ export default function RootLayout() {
   // unstyled-text flash and the protected-content flash for signed-out users.
   if (!fontsLoaded || !ready) return null;
 
+  // NOTE: no navigator-level backdrop is possible here — SDK 56 expo-router
+  // bans @react-navigation/native imports (ThemeProvider) and paints screens
+  // itself. Each screen renders <HallBackdrop /> instead; contentStyle stays
+  // opaque ink so an unwrapped screen degrades to flat dark, never white.
   return (
-    <View style={{ flex: 1, backgroundColor: theme.bg }}>
-      {/* The examination-hall backdrop from the design: a navy glow at the
-          top settling into deep ink, behind every screen. */}
-      <LinearGradient
-        colors={["#1B2242", "#12162B", "#0D0F1E"]}
-        locations={[0, 0.42, 1]}
-        style={StyleSheet.absoluteFill}
-        pointerEvents="none"
-      />
-      {/* The navigator paints its theme background over anything behind it —
-          the default LIGHT theme turned every screen white on device. A dark
-          theme with a transparent background lets the gradient show through;
-          if a platform quirk ever blocks that, the fallback is the wrapper's
-          dark ink, never white. */}
-      <ThemeProvider
-        value={{
-          ...DarkTheme,
-          colors: {
-            ...DarkTheme.colors,
-            background: "transparent",
-            card: theme.bg,
-            text: theme.ink,
-            border: theme.border,
-            primary: theme.brass,
-          },
-        }}
-      >
-        <Stack
-          screenOptions={{
-            headerStyle: { backgroundColor: "#1B2242" },
-            headerTintColor: theme.ink,
-            headerTitleStyle: { fontFamily: theme.fontDisplay, fontSize: 19 },
-            headerShadowVisible: false,
-            contentStyle: { backgroundColor: "transparent" },
-          }}
-        />
-      </ThemeProvider>
-    </View>
+    <Stack
+      screenOptions={{
+        headerStyle: { backgroundColor: "#1B2242" },
+        headerTintColor: theme.ink,
+        headerTitleStyle: { fontFamily: theme.fontDisplay, fontSize: 19 },
+        headerShadowVisible: false,
+        contentStyle: { backgroundColor: theme.bg },
+      }}
+    />
   );
 }

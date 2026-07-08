@@ -5,6 +5,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Haptics from "expo-haptics";
 import { supabase } from "@/src/lib/supabase";
 import { Loading } from "@/src/components/loading";
+import { HallBackdrop } from "@/src/components/hall-backdrop";
 import { overline, theme } from "@/src/lib/theme";
 
 const LEARNED_KEY = "phrasebook-learned-v1";
@@ -72,6 +73,7 @@ export default function Phrasebook() {
 
   return (
     <View style={styles.container}>
+      <HallBackdrop />
       <Stack.Screen options={{ title: "Phrasebook" }} />
       <FlatList
         data={entries}

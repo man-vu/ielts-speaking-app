@@ -9,6 +9,7 @@ import { Preflight } from "@/src/components/preflight";
 import { CueCard } from "@/src/components/cue-card";
 import { NotesPad } from "@/src/components/notes-pad";
 import { Assessing } from "@/src/components/assessing";
+import { HallBackdrop } from "@/src/components/hall-backdrop";
 import { ExamStage, LiveMeter } from "@/src/components/exam-stage";
 import type { ExamPhase } from "@/src/lib/exam/machine";
 import type { SimMode } from "@/src/lib/types";
@@ -72,10 +73,11 @@ export default function ExamScreen() {
 
   if (exam.screen === "preflight") {
     return (
-      <>
+      <View style={{ flex: 1 }}>
+        <HallBackdrop />
         <Stack.Screen options={{ title: "Sound check" }} />
         <Preflight onReady={() => void exam.begin()} />
-      </>
+      </View>
     );
   }
 
@@ -89,6 +91,7 @@ export default function ExamScreen() {
   if (exam.screen === "fatal" || exam.screen === "uploading" || exam.screen === "upload_failed") {
     return (
       <View style={styles.center}>
+        <HallBackdrop />
         <Stack.Screen options={{ title: screenTitle }} />
         {exam.screen === "uploading" ? (
           <Assessing />
@@ -128,6 +131,8 @@ export default function ExamScreen() {
   const cueCardTopic = exam.display?.cueCard?.split("\n")[0] ?? "";
 
   return (
+    <View style={{ flex: 1 }}>
+      <HallBackdrop />
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Stack.Screen
         options={{
@@ -274,6 +279,7 @@ export default function ExamScreen() {
         </View>
       )}
     </ScrollView>
+    </View>
   );
 }
 

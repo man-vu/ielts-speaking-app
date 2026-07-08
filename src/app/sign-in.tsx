@@ -4,6 +4,7 @@ import {
   KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View,
 } from "react-native";
 import { supabase } from "@/src/lib/supabase";
+import { HallBackdrop } from "@/src/components/hall-backdrop";
 import { overline, theme } from "@/src/lib/theme";
 
 export default function SignIn() {
@@ -26,6 +27,7 @@ export default function SignIn() {
       behavior={Platform.OS === "ios" ? "padding" : undefined}
       style={styles.container}
     >
+      <HallBackdrop />
       <View style={styles.masthead}>
         <Text style={overline}>The Speaking Test</Text>
         <Text style={styles.wordmark}>IELTS Speaking</Text>

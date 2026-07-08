@@ -3,6 +3,7 @@ import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 import { Stack, router, useFocusEffect } from "expo-router";
 import { supabase } from "@/src/lib/supabase";
 import { Skeleton } from "@/src/components/skeleton";
+import { HallBackdrop } from "@/src/components/hall-backdrop";
 import { overline, theme } from "@/src/lib/theme";
 
 interface Bands {
@@ -102,6 +103,7 @@ export default function History() {
 
   return (
     <View style={styles.container}>
+      <HallBackdrop />
       <Stack.Screen options={{ title: "History" }} />
       <FlatList
         data={rows}

@@ -6,6 +6,7 @@ import { supabase } from "@/src/lib/supabase";
 import { SIM_MONTHLY_UNITS, UNIT_COSTS } from "@/src/lib/config";
 import type { SimMode } from "@/src/lib/types";
 import { ONBOARDING_KEY, Onboarding } from "@/src/components/onboarding";
+import { HallBackdrop } from "@/src/components/hall-backdrop";
 import { apiFetch } from "@/src/lib/api";
 import {
   clearPendingExam, getPendingExam, salvagePendingExam, type PendingExamMeta,
@@ -109,6 +110,7 @@ export default function Home() {
 
   return (
     <View style={styles.root}>
+      <HallBackdrop />
       <Stack.Screen options={{ title: "", headerShown: false }} />
       <Onboarding visible={showOnboarding} onDone={() => setShowOnboarding(false)} />
 
