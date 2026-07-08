@@ -36,6 +36,7 @@ export default function Home() {
   const [unitsLine, setUnitsLine] = useState("");
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [pending, setPending] = useState<PendingExamMeta | null>(null);
+  const [spokeToday, setSpokeToday] = useState<boolean | null>(null);
   const [salvaging, setSalvaging] = useState(false);
 
   function recoverPending(meta: PendingExamMeta) {
@@ -85,12 +86,17 @@ export default function Home() {
       void (async () => {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
-        const [{ data: profile }, { data: usage }] = await Promise.all([
+        const todayStart = new Date();
+        todayStart.setHours(0, 0, 0, 0);
+        const [{ data: profile }, { data: usage }, { count: todayCount }] = await Promise.all([
           supabase.from("profiles").select("tier").eq("id", user.id).maybeSingle(),
           supabase.from("sim_usage").select("units").eq("user_id", user.id)
             .eq("month_start", currentMonthStart()).maybeSingle(),
+          supabase.from("sim_sessions").select("id", { count: "exact", head: true })
+            .eq("user_id", user.id).gte("created_at", todayStart.toISOString()),
         ]);
         if (cancelled) return;
+        setSpokeToday((todayCount ?? 0) > 0);
         const limit = SIM_MONTHLY_UNITS[(profile?.tier as string) ?? "free"];
         setUnitsLine(
           limit === null
@@ -213,6 +219,14 @@ export default function Home() {
           </View>
         </View>
 
+        {spokeToday !== null && (
+          <Text style={[styles.dailyGoal, spokeToday && styles.dailyGoalDone]}>
+            {spokeToday
+              ? "✓ You've spoken today — the habit holds."
+              : "You haven't spoken today. Five minutes counts."}
+          </Text>
+        )}
+
         <View style={styles.footer}>
           {unitsLine ? (
             <Text style={styles.units}>{unitsLine}</Text>
@@ -220,6 +234,7 @@ export default function Home() {
             <Skeleton width={150} height={13} radius={6} />
           )}
           <View style={styles.footerLinks}>
+            <Link href="/phrasebook" style={styles.link}>Phrasebook</Link>
             <Link href="/drills" style={styles.link}>Drills</Link>
             <Link href="/history" style={styles.link}>History</Link>
             <Pressable onPress={() => void supabase.auth.signOut()} accessibilityRole="button">
@@ -284,6 +299,10 @@ const styles = StyleSheet.create({
   practiceNumeral: { fontFamily: theme.fontDisplayBold, fontSize: 18, color: theme.brass },
   practiceName: { color: theme.ink, fontSize: 12.5 },
   practiceCost: { fontFamily: theme.fontMono, fontSize: 10.5, color: theme.inkMuted },
+  dailyGoal: {
+    textAlign: "center", fontSize: 12.5, color: theme.inkMuted, marginTop: 10,
+  },
+  dailyGoalDone: { color: theme.live },
   footer: { gap: 12, marginTop: 14, alignItems: "center" },
   units: { color: theme.brass, fontSize: 13 },
   footerLinks: { flexDirection: "row", gap: 24, alignItems: "center" },
