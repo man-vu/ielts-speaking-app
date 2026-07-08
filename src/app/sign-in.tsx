@@ -51,7 +51,7 @@ export default function SignIn() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: "center", padding: 28, gap: 13, backgroundColor: theme.bg },
+  container: { flex: 1, justifyContent: "center", padding: 28, gap: 13 },
   masthead: { gap: 8, marginBottom: 10 },
   wordmark: { fontFamily: theme.fontDisplayBold, fontSize: 34, color: theme.ink },
   rule: { height: 1, backgroundColor: theme.border, marginTop: 4 },
