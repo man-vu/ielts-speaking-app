@@ -16,6 +16,9 @@ export interface LiveHandlers {
   onError(message: string): void;
   /** Streaming ASR fragments for both sides of the conversation. */
   onTranscript(role: "examiner" | "candidate", text: string): void;
+  /** Raw examiner audio (24 kHz PCM16 base64) as it arrives — only chunks
+   *  that will actually play (not muted); feeds the conversation track. */
+  onExaminerAudio?(data: string): void;
 }
 
 export interface ConnectOpts {
@@ -85,7 +88,10 @@ export function useLiveSession(handlers: LiveHandlers) {
             if (genRef.current !== gen) return;
 
             // Model audio out (24 kHz PCM16 base64)
-            if (message.data) player.enqueue(message.data);
+            if (message.data) {
+              player.enqueue(message.data);
+              if (!player.muted) handlersRef.current.onExaminerAudio?.(message.data);
+            }
 
             const sc = message.serverContent;
             if (sc?.interrupted) player.stop();

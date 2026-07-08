@@ -17,6 +17,22 @@ export function int16ToBase64(pcm: Int16Array): string {
   return btoa(binary);
 }
 
+/** Linear-interpolation downsample 24 kHz → 16 kHz (2 output samples per 3
+ *  input) so examiner audio can share a WAV timeline with the 16 kHz mic. */
+export function resample24to16(input: Int16Array): Int16Array {
+  const outLen = Math.floor((input.length * 2) / 3);
+  const out = new Int16Array(outLen);
+  for (let i = 0; i < outLen; i++) {
+    const pos = i * 1.5;
+    const i0 = Math.floor(pos);
+    const frac = pos - i0;
+    const s0 = input[i0] ?? 0;
+    const s1 = input[i0 + 1] ?? s0;
+    out[i] = (s0 + (s1 - s0) * frac) | 0;
+  }
+  return out;
+}
+
 export function base64ToInt16(b64: string): Int16Array {
   const binary = atob(b64);
   const bytes = new Uint8Array(binary.length);

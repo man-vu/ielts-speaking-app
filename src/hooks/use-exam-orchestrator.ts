@@ -11,6 +11,7 @@ import {
 } from "@/src/lib/exam/machine";
 import type { ExamDisplayData, ReportPayload, SimMode, TokenResponse } from "@/src/lib/types";
 import { PartAccumulator } from "@/src/lib/audio/part-accumulator";
+import { base64ToInt16, resample24to16 } from "@/src/lib/audio/pcm";
 import {
   configureExamAudioSession, deactivateAudioSession, requestMicPermission,
 } from "@/src/lib/audio/session";
@@ -51,6 +52,14 @@ export function useExamOrchestrator(mode: SimMode, part23Slug?: string): {
   function getAccumulator(): PartAccumulator {
     if (!accumulatorRef.current) accumulatorRef.current = new PartAccumulator(16000);
     return accumulatorRef.current;
+  }
+  // Playback-only conversation track: mic AND examiner audio appended onto
+  // one timeline (the exam is half-duplex, so sequential appends reconstruct
+  // the conversation). Scoring stays on the mic-pure accumulator above.
+  const convoRef = useRef<PartAccumulator | null>(null);
+  function getConvo(): PartAccumulator {
+    if (!convoRef.current) convoRef.current = new PartAccumulator(16000);
+    return convoRef.current;
   }
   const currentPartRef = useRef<1 | 2 | 3 | null>(null);
   const resumeHandleRef = useRef<string | undefined>(undefined);
@@ -98,6 +107,10 @@ export function useExamOrchestrator(mode: SimMode, part23Slug?: string): {
     },
     onError(message) {
       setBanner(`Connection problem: ${message}`);
+    },
+    onExaminerAudio(data) {
+      const part = currentPartRef.current;
+      if (part) getConvo().add(part, resample24to16(base64ToInt16(data)));
     },
     onTranscript(role, text) {
       const part = currentPartRef.current ?? null;
@@ -150,7 +163,10 @@ export function useExamOrchestrator(mode: SimMode, part23Slug?: string): {
     // lost 80+ seconds of a talk to this gate).
     if (stateRef.current.phase !== "part2_talk" && liveRef.current.isExaminerSpeaking()) return;
     liveRef.current.sendAudioChunk(pcm);
-    if (currentPartRef.current) getAccumulator().add(currentPartRef.current, pcm);
+    if (currentPartRef.current) {
+      getAccumulator().add(currentPartRef.current, pcm);
+      getConvo().add(currentPartRef.current, pcm);
+    }
   }, []);
 
   const lastLoudAtRef = useRef(0);
@@ -387,7 +403,7 @@ export function useExamOrchestrator(mode: SimMode, part23Slug?: string): {
       });
       if (!urlRes.ok) throw new Error(`upload-urls HTTP ${urlRes.status}`);
       const { uploads } = (await urlRes.json()) as {
-        uploads: { part: 1 | 2 | 3; signedUrl: string }[];
+        uploads: { part: 1 | 2 | 3; signedUrl: string; convoUrl?: string }[];
       };
 
       for (const part of parts) {
@@ -406,6 +422,25 @@ export function useExamOrchestrator(mode: SimMode, part23Slug?: string): {
           throw new Error(`part ${part} upload HTTP ${put.status}`);
         }
         logCrumb("upload_part_ok", { part });
+        // Conversation track is a playback nicety — best-effort, never
+        // blocks scoring. A failed convo PUT is logged and skipped.
+        if (target.convoUrl && getConvo().parts().includes(part)) {
+          try {
+            const convoFile = new File(Paths.cache, `part${part}-convo.wav`);
+            convoFile.write(getConvo().toWav(part));
+            cacheFiles.push(convoFile);
+            const convoPut = await LegacyFileSystem.uploadAsync(target.convoUrl, convoFile.uri, {
+              httpMethod: "PUT",
+              uploadType: LegacyFileSystem.FileSystemUploadType.BINARY_CONTENT,
+              headers: { "Content-Type": "audio/wav" },
+            });
+            if (convoPut.status < 200 || convoPut.status >= 300) {
+              throw new Error(`HTTP ${convoPut.status}`);
+            }
+          } catch (e) {
+            logCrumb("upload_convo_skip", { part, message: String(e) });
+          }
+        }
       }
 
       const res = await apiFetch("/api/score", {
@@ -416,6 +451,9 @@ export function useExamOrchestrator(mode: SimMode, part23Slug?: string): {
           uploadedParts: parts.map((part) => ({
             part,
             duration: Math.round(getAccumulator().durationSeconds(part)),
+            convoDuration: getConvo().parts().includes(part)
+              ? Math.round(getConvo().durationSeconds(part))
+              : undefined,
           })),
           dialogue: dialogueRef.current,
         }),

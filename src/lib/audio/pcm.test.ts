@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  base64ToInt16, floatTo16BitPcm, int16ToBase64,
+  base64ToInt16, floatTo16BitPcm, int16ToBase64, resample24to16,
 } from "./pcm";
 
 describe("floatTo16BitPcm", () => {
@@ -12,6 +12,17 @@ describe("floatTo16BitPcm", () => {
     expect(out[3]).toBe(32767);   // clamped
     expect(out[4]).toBe(-32768);  // clamped
     expect(out[5]).toBeCloseTo(16383, -1);
+  });
+});
+
+describe("resample24to16", () => {
+  it("produces 2/3 length with linear interpolation", () => {
+    const out = resample24to16(new Int16Array([0, 300, 600, 900, 1200, 1500]));
+    expect(Array.from(out)).toEqual([0, 450, 900, 1350]);
+  });
+
+  it("holds duration: 24k samples in ≈ 16k samples out per second", () => {
+    expect(resample24to16(new Int16Array(24000)).length).toBe(16000);
   });
 });
 
