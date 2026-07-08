@@ -93,6 +93,15 @@ export default function ExamScreen() {
             ? "Sealing your answers for marking…"
             : exam.banner || "Something went wrong."}
         </Text>
+        {exam.screen === "fatal" && exam.phase === "connecting" && (
+          <Pressable
+            style={styles.button}
+            onPress={exam.restart}
+            accessibilityRole="button"
+          >
+            <Text style={styles.buttonText}>Try again</Text>
+          </Pressable>
+        )}
         {exam.screen === "upload_failed" && (
           <Pressable
             style={styles.button}

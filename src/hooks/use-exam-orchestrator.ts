@@ -33,6 +33,7 @@ export function useExamOrchestrator(mode: SimMode, part23Slug?: string): {
   micLevel: number;
   examinerSpeaking: boolean;
   startTalkEarly(): void;
+  restart(): void;
   begin(): Promise<void>;
   endEarly(): void;
   retryUpload(): Promise<void>;
@@ -498,6 +499,14 @@ export function useExamOrchestrator(mode: SimMode, part23Slug?: string): {
     dispatch({ type: "FORCE_END" });
   }, []);
 
+  /** After a failed start (token mint hiccup, network), return to the sound
+   *  check so the candidate can try again instead of dead-ending. */
+  const restart = useCallback(() => {
+    if (endedRef.current) return;
+    setBanner("");
+    setScreen("preflight");
+  }, []);
+
   // --- Phase-driven side effects ---
   useEffect(() => {
     if (screen !== "exam") return;
@@ -585,6 +594,7 @@ export function useExamOrchestrator(mode: SimMode, part23Slug?: string): {
     begin,
     endEarly,
     startTalkEarly,
+    restart,
     retryUpload: uploadRecordings,
     sessionId: session?.sessionId ?? null,
   };
