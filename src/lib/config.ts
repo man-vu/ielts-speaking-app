@@ -1,4 +1,4 @@
-export const UNIT_COSTS = { full: 3, part1: 1, part2: 1, part3: 1 } as const;
+export const UNIT_COSTS = { full: 3, part1: 1, part2: 1, part3: 1, chat: 1 } as const;
 export const PART2_PREP_SECONDS = 60;
 export const PART2_TALK_SECONDS = 120;
 

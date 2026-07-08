@@ -17,7 +17,7 @@ const PHASE_LABELS: Record<ExamPhase, string> = {
   part2_prep: "Part 2 · Preparation", part2_talk: "Part 2 · Speaking",
   part2_rounding: "Part 2", part3: "Part 3 · Discussion", ended: "Finished",
 };
-const MODES: SimMode[] = ["full", "part1", "part2", "part3"];
+const MODES: SimMode[] = ["full", "part1", "part2", "part3", "chat"];
 
 function fmt(seconds: number): string {
   const s = Math.max(0, seconds);
@@ -77,10 +77,17 @@ export default function ExamScreen() {
     );
   }
 
+  const examinerName = exam.display?.examiner?.name ?? "Alex";
+  const examinerInitial = exam.display?.examiner?.initial ?? "A";
+  const screenTitle =
+    mode === "chat" && exam.phase !== "ended" && exam.phase !== "connecting"
+      ? `Chatting with ${examinerName}`
+      : PHASE_LABELS[exam.phase];
+
   if (exam.screen === "fatal" || exam.screen === "uploading" || exam.screen === "upload_failed") {
     return (
       <View style={styles.center}>
-        <Stack.Screen options={{ title: PHASE_LABELS[exam.phase] }} />
+        <Stack.Screen options={{ title: screenTitle }} />
         <Text style={styles.status}>
           {exam.screen === "uploading"
             ? "Sealing your answers for marking…"
@@ -108,14 +115,12 @@ export default function ExamScreen() {
     exam.phase === "part2_prep" || exam.phase === "part2_talk" || exam.phase === "part2_rounding";
   const connecting = exam.phase === "connecting" || exam.liveStatus !== "live";
   const cueCardTopic = exam.display?.cueCard?.split("\n")[0] ?? "";
-  const examinerName = exam.display?.examiner?.name ?? "Alex";
-  const examinerInitial = exam.display?.examiner?.initial ?? "A";
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Stack.Screen
         options={{
-          title: PHASE_LABELS[exam.phase],
+          title: screenTitle,
           headerRight: () =>
             exam.phase !== "ended" && exam.phase !== "connecting" ? (
               <Pressable onPress={confirmEndExam} accessibilityRole="button">

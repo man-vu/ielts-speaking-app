@@ -200,6 +200,18 @@ export default function Home() {
           </View>
         )}
 
+        <Pressable
+          style={({ pressed }) => [styles.chatCard, pressed && styles.pressed]}
+          onPress={() => router.push("/exam/chat")}
+          accessibilityRole="button"
+          accessibilityLabel="Casual chat practice. No exam, no timers. Costs 1 unit."
+        >
+          <Text style={styles.chatTitle}>Casual chat</Text>
+          <Text style={styles.chatBlurb}>
+            Your examiner, off duty — relaxed conversation, help when you're stuck. 1 unit.
+          </Text>
+        </Pressable>
+
         <View style={styles.practiceBlock}>
           <Text style={[overline, styles.practiceLabel]}>Practice a single part</Text>
           <View style={styles.practiceRow}>
@@ -299,6 +311,12 @@ const styles = StyleSheet.create({
   practiceNumeral: { fontFamily: theme.fontDisplayBold, fontSize: 18, color: theme.brass },
   practiceName: { color: theme.ink, fontSize: 12.5 },
   practiceCost: { fontFamily: theme.fontMono, fontSize: 10.5, color: theme.inkMuted },
+  chatCard: {
+    marginTop: 8, gap: 4, padding: 16, borderRadius: 12,
+    borderWidth: 1, borderColor: theme.borderSoft, backgroundColor: theme.card,
+  },
+  chatTitle: { fontFamily: theme.fontDisplay, fontSize: 16, color: theme.ink },
+  chatBlurb: { fontSize: 12.5, lineHeight: 18, color: theme.inkMuted },
   dailyGoal: {
     textAlign: "center", fontSize: 12.5, color: theme.inkMuted, marginTop: 10,
   },

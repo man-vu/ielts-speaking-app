@@ -35,7 +35,7 @@ export function phaseTimeoutSeconds(phase: ExamPhase, mode: SimMode): number | n
   switch (phase) {
     case "connecting": return 30;
     case "intro": return 90;
-    case "part1": return mode === "part1" ? 420 : 330;
+    case "part1": return mode === "part1" ? 420 : mode === "chat" ? 900 : 330;
     case "part2_prep": return 90;   // PREP_TIMER_DONE fires at 60; this is the backstop
     case "part2_talk": return 150;  // TALK_TIMER_DONE fires at 120
     case "part2_rounding": return 75;
@@ -83,7 +83,10 @@ export function examReducer(state: ExamState, event: ExamEvent): ExamState {
     case "TOOL_CALL":
       switch (event.name) {
         case "advance_part":
-          if (event.toPart === 1 && phase === "intro" && (mode === "full" || mode === "part1")) {
+          if (
+            event.toPart === 1 && phase === "intro" &&
+            (mode === "full" || mode === "part1" || mode === "chat")
+          ) {
             return to("part1");
           }
           if (
@@ -111,7 +114,7 @@ export function examReducer(state: ExamState, event: ExamEvent): ExamState {
           // the talk must not be able to send the exam to marking (observed
           // on device: 14 s into a 2-minute talk).
           if (phase === "part3") return to("ended");
-          if (mode === "part1" && phase === "part1") return to("ended");
+          if ((mode === "part1" || mode === "chat") && phase === "part1") return to("ended");
           if (mode === "part2" && phase === "part2_rounding") return to("ended");
           return state;
       }
