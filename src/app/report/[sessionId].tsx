@@ -40,6 +40,7 @@ export default function ReportScreen() {
   const stampAnim = useRef(new Animated.Value(0)).current;
   const stampedRef = useRef(false);
   const [copiedPart, setCopiedPart] = useState<number | null>(null);
+  const [band8Open, setBand8Open] = useState<number | null>(null);
   const [discarding, setDiscarding] = useState(false);
 
   function copyTranscript(part: number, transcript: string) {
@@ -365,6 +366,22 @@ export default function ReportScreen() {
             {anyHighlight && (
               <Text style={styles.hint}>Tap a highlighted phrase to see the fix.</Text>
             )}
+            {p.model_answer ? (
+              <View style={styles.band8Box}>
+                <Pressable
+                  onPress={() => setBand8Open(band8Open === p.part ? null : p.part)}
+                  accessibilityRole="button"
+                  hitSlop={8}
+                >
+                  <Text style={styles.band8Head}>
+                    ★ Your answer at Band 8 {band8Open === p.part ? "▾" : "▸"}
+                  </Text>
+                </Pressable>
+                {band8Open === p.part && (
+                  <Text style={styles.band8Text}>{p.model_answer.trim()}</Text>
+                )}
+              </View>
+            ) : null}
             {p.part === 2 && payload.part23Slug ? (
               <Pressable
                 style={styles.retryTopic}
@@ -436,6 +453,12 @@ const styles = StyleSheet.create({
   },
   shareText: { color: theme.info, fontSize: 13.5 },
   copyLink: { color: theme.info, fontSize: 13 },
+  band8Box: {
+    borderLeftWidth: 2, borderLeftColor: theme.brass,
+    paddingLeft: 12, paddingVertical: 2, gap: 8,
+  },
+  band8Head: { color: theme.brass, fontFamily: theme.fontDisplay, fontSize: 14 },
+  band8Text: { color: theme.inkSecondary, fontSize: 14, lineHeight: 21 },
   thread: { gap: 8 },
   bubble: {
     maxWidth: "84%", borderRadius: 16, paddingVertical: 9, paddingHorizontal: 13,

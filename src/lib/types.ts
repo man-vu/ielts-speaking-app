@@ -36,7 +36,13 @@ export interface ReportPayload {
   report: {
     band_scores: BandScores;
     criterion_breakdown: Record<string, string>;
-    per_part: { part: number; transcript: string; band_scores: BandScores }[];
+    per_part: {
+      part: number;
+      transcript: string;
+      band_scores: BandScores;
+      /** Candidate's own answer rewritten at Band 8 (newer reports only). */
+      model_answer?: string;
+    }[];
     priority_errors: {
       part: number; rank: number; error_type: string; description: string;
       criterion_impact: string; correction: string;
