@@ -9,6 +9,7 @@ const EXAMINER_CHOICES = [
   { key: "alex", name: "Alex", tagline: "Warm & steady" },
   { key: "priya", name: "Priya", tagline: "Brisk & precise" },
   { key: "marcus", name: "Marcus", tagline: "Formal & reserved" },
+  { key: "victor", name: "Victor", tagline: "Stern & impatient" },
 ];
 
 const WAVE_BARS = [0, 0.09, 0.18, 0.3, 0.42, 0.3, 0.18, 0.09, 0.24, 0.5, 0.36];
@@ -206,9 +207,10 @@ const styles = StyleSheet.create({
   },
   examinerBlock: { gap: 8 },
   examinerLabel: { color: theme.inkMuted },
-  examinerRow: { flexDirection: "row", gap: 8 },
+  examinerRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   examinerChip: {
-    flex: 1, alignItems: "center", gap: 2, paddingVertical: 10, paddingHorizontal: 4,
+    flexBasis: "47%", flexGrow: 1, alignItems: "center", gap: 2,
+    paddingVertical: 10, paddingHorizontal: 4,
     borderRadius: 10, borderWidth: 1, borderColor: theme.border, backgroundColor: theme.card,
   },
   examinerChipOn: { borderColor: theme.brass, backgroundColor: theme.cardRaised },
