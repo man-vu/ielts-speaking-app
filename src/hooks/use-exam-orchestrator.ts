@@ -256,6 +256,12 @@ export function useExamOrchestrator(mode: SimMode, part23Slug?: string): {
       interruptionSubRef.current = AudioManager.addSystemEventListener("interruption", (event) =>
         void interruptionHandlerRef.current(event)
       );
+      // Kickoff: without this the model waits to HEAR the candidate before
+      // saying anything — the room should greet you the moment you enter.
+      liveRef.current.sendSystemText(
+        "[SYSTEM] The candidate has just entered the room and can hear you. Greet them and begin the exam now."
+      );
+      logCrumb("kickoff_sent");
       dispatch({ type: "CONNECTED" });
     } catch (err) {
       liveRef.current.disconnect();
