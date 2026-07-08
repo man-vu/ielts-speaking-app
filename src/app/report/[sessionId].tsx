@@ -42,6 +42,28 @@ export default function ReportScreen() {
   const [copiedPart, setCopiedPart] = useState<number | null>(null);
   const [band8Open, setBand8Open] = useState<number | null>(null);
   const [band8Busy, setBand8Busy] = useState(false);
+  const [band8Audio, setBand8Audio] = useState<Record<number, string>>({});
+  const [band8AudioBusy, setBand8AudioBusy] = useState<number | null>(null);
+
+  // Fetch (server generates once, then caches) the spoken Band 8 answer.
+  async function fetchBand8Audio(part: number) {
+    if (band8AudioBusy !== null || band8Audio[part]) return;
+    setBand8AudioBusy(part);
+    try {
+      const res = await apiFetch(`/api/sessions/${sessionId}/band8-audio`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ part }),
+      });
+      const body = (await res.json()) as { url?: string; error?: string };
+      if (!res.ok || !body.url) throw new Error(body.error ?? `HTTP ${res.status}`);
+      setBand8Audio((prev) => ({ ...prev, [part]: body.url! }));
+    } catch (e) {
+      Alert.alert("Could not prepare the audio", e instanceof Error ? e.message : "");
+    } finally {
+      setBand8AudioBusy(null);
+    }
+  }
 
   // Band 8 rewrites are generated on demand (per dialogue turn when the
   // conversation was captured, per part otherwise) and merged into the
@@ -407,27 +429,48 @@ export default function ReportScreen() {
               <Text style={styles.hint}>Tap a highlighted phrase to see the fix.</Text>
             )}
             {turns.length > 0 ? (
-              <Pressable
-                onPress={() => {
-                  if (band8Open === p.part) return setBand8Open(null);
-                  const anyTurnB8 = turns.some(
-                    (t) => t.role === "candidate" && t.band8?.trim()
-                  );
-                  if (anyTurnB8) return setBand8Open(p.part);
-                  void generateBand8().then((ok) => ok && setBand8Open(p.part));
-                }}
-                disabled={band8Busy}
-                accessibilityRole="button"
-                hitSlop={8}
-              >
-                <Text style={[styles.band8Head, band8Busy && { opacity: 0.5 }]}>
-                  {band8Busy
-                    ? "Rewriting your answers at Band 8…"
-                    : band8Open === p.part
-                      ? "★ Showing Band 8 — tap to see your original"
-                      : "★ Show my answers at Band 8"}
-                </Text>
-              </Pressable>
+              <>
+                <Pressable
+                  onPress={() => {
+                    if (band8Open === p.part) return setBand8Open(null);
+                    const anyTurnB8 = turns.some(
+                      (t) => t.role === "candidate" && t.band8?.trim()
+                    );
+                    if (anyTurnB8) return setBand8Open(p.part);
+                    void generateBand8().then((ok) => ok && setBand8Open(p.part));
+                  }}
+                  disabled={band8Busy}
+                  accessibilityRole="button"
+                  hitSlop={8}
+                >
+                  <Text style={[styles.band8Head, band8Busy && { opacity: 0.5 }]}>
+                    {band8Busy
+                      ? "Rewriting your answers at Band 8…"
+                      : band8Open === p.part
+                        ? "★ Showing Band 8 — tap to see your original"
+                        : "★ Show my answers at Band 8"}
+                  </Text>
+                </Pressable>
+                {band8Open === p.part &&
+                  (band8Audio[p.part] ? (
+                    <AudioScrubber url={band8Audio[p.part]} />
+                  ) : (
+                    <Pressable
+                      onPress={() => void fetchBand8Audio(p.part)}
+                      disabled={band8AudioBusy !== null}
+                      accessibilityRole="button"
+                      hitSlop={8}
+                    >
+                      <Text
+                        style={[styles.band8Listen, band8AudioBusy === p.part && { opacity: 0.5 }]}
+                      >
+                        {band8AudioBusy === p.part
+                          ? "Preparing the audio…"
+                          : "🔊 Hear the Band 8 conversation"}
+                      </Text>
+                    </Pressable>
+                  ))}
+              </>
             ) : p.model_answer ? (
               <View style={styles.band8Box}>
                 <Pressable
@@ -440,7 +483,30 @@ export default function ReportScreen() {
                   </Text>
                 </Pressable>
                 {band8Open === p.part && (
-                  <Text style={styles.band8Text}>{p.model_answer.trim()}</Text>
+                  <>
+                    <Text style={styles.band8Text}>{p.model_answer.trim()}</Text>
+                    {band8Audio[p.part] ? (
+                      <AudioScrubber url={band8Audio[p.part]} />
+                    ) : (
+                      <Pressable
+                        onPress={() => void fetchBand8Audio(p.part)}
+                        disabled={band8AudioBusy !== null}
+                        accessibilityRole="button"
+                        hitSlop={8}
+                      >
+                        <Text
+                          style={[
+                            styles.band8Listen,
+                            band8AudioBusy === p.part && { opacity: 0.5 },
+                          ]}
+                        >
+                          {band8AudioBusy === p.part
+                            ? "Preparing the audio…"
+                            : "🔊 Hear it spoken at Band 8"}
+                        </Text>
+                      </Pressable>
+                    )}
+                  </>
                 )}
               </View>
             ) : p.transcript.trim().length > 20 ? (
@@ -533,6 +599,7 @@ const styles = StyleSheet.create({
     paddingLeft: 12, paddingVertical: 2, gap: 8,
   },
   band8Head: { color: theme.brass, fontFamily: theme.fontDisplay, fontSize: 14 },
+  band8Listen: { color: theme.info, fontSize: 13.5 },
   band8Text: { color: theme.inkSecondary, fontSize: 14, lineHeight: 21 },
   thread: { gap: 8 },
   bubble: {
