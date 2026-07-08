@@ -31,6 +31,8 @@ export interface ReportPayload {
   mode: SimMode;
   /** Part 2/3 topic slug — enables "practice this topic again". */
   part23Slug?: string | null;
+  /** Interleaved conversation transcript (client-collected ASR). */
+  dialogue?: { role: "examiner" | "candidate"; text: string; part: number | null }[] | null;
   report: {
     band_scores: BandScores;
     criterion_breakdown: Record<string, string>;

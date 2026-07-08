@@ -14,6 +14,8 @@ export interface LiveHandlers {
   onResumptionHandle(handle: string): void;
   onUnexpectedClose(): void;
   onError(message: string): void;
+  /** Streaming ASR fragments for both sides of the conversation. */
+  onTranscript(role: "examiner" | "candidate", text: string): void;
 }
 
 export interface ConnectOpts {
@@ -87,6 +89,12 @@ export function useLiveSession(handlers: LiveHandlers) {
 
             const sc = message.serverContent;
             if (sc?.interrupted) player.stop();
+            if (sc?.outputTranscription?.text) {
+              handlersRef.current.onTranscript("examiner", sc.outputTranscription.text);
+            }
+            if (sc?.inputTranscription?.text) {
+              handlersRef.current.onTranscript("candidate", sc.inputTranscription.text);
+            }
 
             if (message.toolCall?.functionCalls) {
               const responses = message.toolCall.functionCalls.map((fc) => {
@@ -123,6 +131,8 @@ export function useLiveSession(handlers: LiveHandlers) {
           responseModalities: [Modality.AUDIO],
           contextWindowCompression: { slidingWindow: {} }, // removes 15-min cap
           sessionResumption: { handle: opts.resumeHandle ?? undefined },
+          outputAudioTranscription: {},
+          inputAudioTranscription: {},
           ...(opts.voiceName
             ? { speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: opts.voiceName } } } }
             : {}),

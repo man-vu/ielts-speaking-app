@@ -99,7 +99,17 @@ export function useExamOrchestrator(mode: SimMode, part23Slug?: string): {
     onError(message) {
       setBanner(`Connection problem: ${message}`);
     },
+    onTranscript(role, text) {
+      const part = currentPartRef.current ?? null;
+      const log = dialogueRef.current;
+      const last = log[log.length - 1];
+      if (last && last.role === role && last.part === part) last.text += text;
+      else log.push({ role, text, part });
+      if (log.length > 400) log.shift();
+    },
   });
+
+  const dialogueRef = useRef<{ role: "examiner" | "candidate"; text: string; part: 1 | 2 | 3 | null }[]>([]);
 
   // Keep latest live-callbacks accessible to effects without re-running them.
   const liveRef = useRef(live);
@@ -407,6 +417,7 @@ export function useExamOrchestrator(mode: SimMode, part23Slug?: string): {
             part,
             duration: Math.round(getAccumulator().durationSeconds(part)),
           })),
+          dialogue: dialogueRef.current,
         }),
       });
       // 503 means scoring is temporarily down but the audio was already

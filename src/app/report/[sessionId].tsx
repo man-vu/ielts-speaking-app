@@ -303,6 +303,15 @@ export default function ReportScreen() {
                 <Text style={styles.copyLink}>{copiedPart === p.part ? "Copied ✓" : "Copy"}</Text>
               </Pressable>
             </View>
+            {(payload.dialogue ?? [])
+              .filter((d) => d.role === "examiner" && d.part === p.part)
+              .slice(0, 12)
+              .map((d, i) => (
+                <Text key={i} style={styles.examinerLine}>
+                  <Text style={styles.examinerPrefix}>Examiner: </Text>
+                  {d.text.trim()}
+                </Text>
+              ))}
             <View style={styles.metricsRow}>
               {metrics.wpm !== null && (
                 <Text style={styles.metric}>{metrics.wpm} wpm</Text>
@@ -407,6 +416,8 @@ const styles = StyleSheet.create({
   },
   shareText: { color: theme.info, fontSize: 13.5 },
   copyLink: { color: theme.info, fontSize: 13 },
+  examinerLine: { color: theme.inkMuted, fontSize: 13, lineHeight: 19, fontStyle: "italic" },
+  examinerPrefix: { color: theme.brass, fontStyle: "normal", fontSize: 12 },
   retryTopic: {
     marginTop: 8, borderWidth: 1, borderColor: theme.brass, borderRadius: 10,
     paddingVertical: 12, alignItems: "center", backgroundColor: theme.cardRaised,

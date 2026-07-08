@@ -7,6 +7,7 @@ import { useExamOrchestrator } from "@/src/hooks/use-exam-orchestrator";
 import { Preflight } from "@/src/components/preflight";
 import { CueCard } from "@/src/components/cue-card";
 import { NotesPad } from "@/src/components/notes-pad";
+import { Assessing } from "@/src/components/assessing";
 import { ExamStage, LiveMeter } from "@/src/components/exam-stage";
 import type { ExamPhase } from "@/src/lib/exam/machine";
 import type { SimMode } from "@/src/lib/types";
@@ -88,11 +89,11 @@ export default function ExamScreen() {
     return (
       <View style={styles.center}>
         <Stack.Screen options={{ title: screenTitle }} />
-        <Text style={styles.status}>
-          {exam.screen === "uploading"
-            ? "Sealing your answers for marking…"
-            : exam.banner || "Something went wrong."}
-        </Text>
+        {exam.screen === "uploading" ? (
+          <Assessing />
+        ) : (
+          <Text style={styles.status}>{exam.banner || "Something went wrong."}</Text>
+        )}
         {exam.screen === "fatal" && exam.phase === "connecting" && (
           <Pressable
             style={styles.button}
