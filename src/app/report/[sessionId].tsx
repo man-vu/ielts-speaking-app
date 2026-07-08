@@ -43,23 +43,33 @@ export default function ReportScreen() {
   const [band8Open, setBand8Open] = useState<number | null>(null);
   const [band8Busy, setBand8Busy] = useState(false);
 
-  // Older reports were scored before Band 8 rewrites existed — generate them
-  // on demand from the stored transcripts and refresh the payload in place.
-  async function generateBand8() {
-    if (band8Busy) return;
+  // Band 8 rewrites are generated on demand (per dialogue turn when the
+  // conversation was captured, per part otherwise) and merged into the
+  // payload in place. Returns true on success so callers can flip the view.
+  async function generateBand8(): Promise<boolean> {
+    if (band8Busy) return false;
     setBand8Busy(true);
     try {
       const res = await apiFetch(`/api/sessions/${sessionId}/band8`, { method: "POST" });
       const body = (await res.json()) as {
         per_part?: NonNullable<ReportPayload["report"]>["per_part"];
+        dialogue?: ReportPayload["dialogue"];
         error?: string;
       };
       if (!res.ok || !body.per_part) throw new Error(body.error ?? `HTTP ${res.status}`);
       setPayload((prev) =>
-        prev?.report ? { ...prev, report: { ...prev.report, per_part: body.per_part! } } : prev
+        prev?.report
+          ? {
+              ...prev,
+              dialogue: body.dialogue ?? prev.dialogue,
+              report: { ...prev.report, per_part: body.per_part! },
+            }
+          : prev
       );
+      return true;
     } catch (e) {
       Alert.alert("Could not generate Band 8 answers", e instanceof Error ? e.message : "");
+      return false;
     } finally {
       setBand8Busy(false);
     }
@@ -369,27 +379,56 @@ export default function ReportScreen() {
             {rec && <AudioScrubber url={rec.url} />}
             {turns.length > 0 ? (
               <View style={styles.thread}>
-                {turns.map((d, i) =>
-                  d.role === "examiner" ? (
-                    <View key={i} style={[styles.bubble, styles.bubbleExaminer]}>
-                      <Text style={styles.bubbleExaminerText}>{d.text.trim()}</Text>
-                    </View>
-                  ) : (
-                    <View key={i} style={[styles.bubble, styles.bubbleCandidate]}>
+                {turns.map((d, i) => {
+                  if (d.role === "examiner") {
+                    return (
+                      <View key={i} style={[styles.bubble, styles.bubbleExaminer]}>
+                        <Text style={styles.bubbleExaminerText}>{d.text.trim()}</Text>
+                      </View>
+                    );
+                  }
+                  const showB8 = band8Open === p.part && !!d.band8?.trim();
+                  return (
+                    <View
+                      key={i}
+                      style={[styles.bubble, styles.bubbleCandidate, showB8 && styles.bubbleBand8]}
+                    >
                       <Text style={styles.bubbleCandidateText}>
-                        {renderHighlighted(d.text.trim())}
+                        {showB8 ? d.band8!.trim() : renderHighlighted(d.text.trim())}
                       </Text>
                     </View>
-                  )
-                )}
+                  );
+                })}
               </View>
             ) : (
               <Text style={styles.muted}>{renderHighlighted(p.transcript)}</Text>
             )}
-            {anyHighlight && (
+            {anyHighlight && band8Open !== p.part && (
               <Text style={styles.hint}>Tap a highlighted phrase to see the fix.</Text>
             )}
-            {p.model_answer ? (
+            {turns.length > 0 ? (
+              <Pressable
+                onPress={() => {
+                  if (band8Open === p.part) return setBand8Open(null);
+                  const anyTurnB8 = turns.some(
+                    (t) => t.role === "candidate" && t.band8?.trim()
+                  );
+                  if (anyTurnB8) return setBand8Open(p.part);
+                  void generateBand8().then((ok) => ok && setBand8Open(p.part));
+                }}
+                disabled={band8Busy}
+                accessibilityRole="button"
+                hitSlop={8}
+              >
+                <Text style={[styles.band8Head, band8Busy && { opacity: 0.5 }]}>
+                  {band8Busy
+                    ? "Rewriting your answers at Band 8…"
+                    : band8Open === p.part
+                      ? "★ Showing Band 8 — tap to see your original"
+                      : "★ Show my answers at Band 8"}
+                </Text>
+              </Pressable>
+            ) : p.model_answer ? (
               <View style={styles.band8Box}>
                 <Pressable
                   onPress={() => setBand8Open(band8Open === p.part ? null : p.part)}
@@ -506,6 +545,10 @@ const styles = StyleSheet.create({
   bubbleCandidate: {
     alignSelf: "flex-end", borderBottomRightRadius: 4,
     backgroundColor: "rgba(201, 163, 92, 0.15)",
+  },
+  bubbleBand8: {
+    borderWidth: 1, borderColor: theme.brass,
+    backgroundColor: "rgba(201, 163, 92, 0.08)",
   },
   bubbleExaminerText: { color: theme.inkSecondary, fontSize: 14, lineHeight: 20 },
   bubbleCandidateText: { color: theme.ink, fontSize: 14, lineHeight: 20 },
