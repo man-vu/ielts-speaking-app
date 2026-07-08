@@ -5,6 +5,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Haptics from "expo-haptics";
 import { supabase } from "@/src/lib/supabase";
 import { track } from "@/src/lib/telemetry";
+import { Loading } from "@/src/components/loading";
 import { overline, theme } from "@/src/lib/theme";
 
 const DONE_KEY = "drills-done-v1";
@@ -89,13 +90,15 @@ export default function Drills() {
           ) : null
         }
         ListEmptyComponent={
-          <Text style={styles.muted}>
-            {!loaded
-              ? "Loading…"
-              : drills.length === 0
+          !loaded ? (
+            <Loading label="Preparing your drills…" />
+          ) : (
+            <Text style={styles.muted}>
+              {drills.length === 0
                 ? "Finish a scored session and your personalised drills will appear here."
                 : `All caught up — ${resting} drill${resting === 1 ? "" : "s"} resting until their next round.`}
-          </Text>
+            </Text>
+          )
         }
         renderItem={({ item }) => (
           <View style={styles.card}>

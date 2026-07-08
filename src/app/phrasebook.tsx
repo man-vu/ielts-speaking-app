@@ -4,6 +4,7 @@ import { Stack, useFocusEffect } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Haptics from "expo-haptics";
 import { supabase } from "@/src/lib/supabase";
+import { Loading } from "@/src/components/loading";
 import { overline, theme } from "@/src/lib/theme";
 
 const LEARNED_KEY = "phrasebook-learned-v1";
@@ -84,11 +85,13 @@ export default function Phrasebook() {
           ) : null
         }
         ListEmptyComponent={
-          <Text style={styles.muted}>
-            {loaded
-              ? "Finish a scored session and your corrections will collect here."
-              : "Loading…"}
-          </Text>
+          loaded ? (
+            <Text style={styles.muted}>
+              Finish a scored session and your corrections will collect here.
+            </Text>
+          ) : (
+            <Loading label="Collecting your corrections…" />
+          )
         }
         renderItem={({ item }) => {
           const isLearned = learned[`${item.wrong}→${item.right}`];

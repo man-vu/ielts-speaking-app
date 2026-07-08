@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { Stack, router, useSegments, type ErrorBoundaryProps } from "expo-router";
+import { LinearGradient } from "expo-linear-gradient";
 import { useFonts } from "expo-font";
 import {
   Fraunces_600SemiBold,
@@ -106,14 +107,24 @@ export default function RootLayout() {
   if (!fontsLoaded || !ready) return null;
 
   return (
-    <Stack
-      screenOptions={{
-        headerStyle: { backgroundColor: theme.bg },
-        headerTintColor: theme.ink,
-        headerTitleStyle: { fontFamily: theme.fontDisplay, fontSize: 19 },
-        headerShadowVisible: false,
-        contentStyle: { backgroundColor: theme.bg },
-      }}
-    />
+    <View style={{ flex: 1, backgroundColor: theme.bg }}>
+      {/* The examination-hall backdrop from the design: a navy glow at the
+          top settling into deep ink, behind every screen. */}
+      <LinearGradient
+        colors={["#1B2242", "#12162B", "#0D0F1E"]}
+        locations={[0, 0.42, 1]}
+        style={StyleSheet.absoluteFill}
+        pointerEvents="none"
+      />
+      <Stack
+        screenOptions={{
+          headerStyle: { backgroundColor: "#1B2242" },
+          headerTintColor: theme.ink,
+          headerTitleStyle: { fontFamily: theme.fontDisplay, fontSize: 19 },
+          headerShadowVisible: false,
+          contentStyle: { backgroundColor: "transparent" },
+        }}
+      />
+    </View>
   );
 }

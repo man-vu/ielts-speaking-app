@@ -8,6 +8,7 @@ import * as Clipboard from "expo-clipboard";
 import * as Haptics from "expo-haptics";
 import { AudioScrubber } from "@/src/components/audio-scrubber";
 import { Assessing } from "@/src/components/assessing";
+import { Loading } from "@/src/components/loading";
 import { apiFetch } from "@/src/lib/api";
 import { segmentTranscript, speechMetrics } from "@/src/lib/report-insights";
 import { track } from "@/src/lib/telemetry";
@@ -185,7 +186,11 @@ export default function ReportScreen() {
     return (
       <View style={styles.center}>
         <Stack.Screen options={{ title: "Your report" }} />
-        <Text style={error ? styles.error : styles.muted}>{error || "Loading…"}</Text>
+        {error ? (
+          <Text style={styles.error}>{error}</Text>
+        ) : (
+          <Loading label="Opening your report…" />
+        )}
       </View>
     );
   }
