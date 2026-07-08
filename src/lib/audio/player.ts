@@ -5,6 +5,7 @@ import { base64ToInt16 } from "./pcm";
  *  Same contract and scheduling as the web implementation. */
 export class Pcm24kPlayer {
   muted = false;
+  private closed = false;
   private ctx: AudioContext | null = null;
   private nextStartTime = 0;
   private active = new Set<AudioBufferSourceNode>();
@@ -30,7 +31,7 @@ export class Pcm24kPlayer {
   }
 
   enqueue(base64Pcm: string): void {
-    if (this.muted) return;
+    if (this.muted || this.closed) return;
     const ctx = this.ensureCtx();
     const pcm = base64ToInt16(base64Pcm);
     const floats = new Float32Array(pcm.length);
@@ -52,12 +53,19 @@ export class Pcm24kPlayer {
   stop(): void {
     for (const source of this.active) {
       try { source.stop(); } catch { /* already stopped */ }
+      // Belt to stop()'s braces: a native impl may not cancel a source whose
+      // scheduled start is still in the future — detaching it from the
+      // destination silences it regardless (an exam that "ended" must not
+      // keep talking through the results screen).
+      try { source.disconnect(); } catch { /* already detached */ }
     }
     this.active.clear();
     this.nextStartTime = 0;
   }
 
   async close(): Promise<void> {
+    this.closed = true;
+    this.muted = true;
     this.stop();
     if (this.ctx) await this.ctx.close();
     this.ctx = null;
