@@ -283,7 +283,6 @@ export default function ReportScreen() {
           <Text style={[overline, styles.stampLabel]}>Overall band</Text>
           <Text style={styles.heroBand}>{r.band_scores.overall.toFixed(1)}</Text>
         </Animated.View>
-        <Text style={styles.note}>{r.examiner_note}</Text>
         <View style={styles.barsBlock}>
           {BAR_LABELS.map(({ key, label }) => {
             const value = ((r.band_scores as unknown) as Record<string, number>)[key] ?? 0;
@@ -317,17 +316,32 @@ export default function ReportScreen() {
           <Text style={styles.shareText}>Share with a teacher</Text>
         </Pressable>
       </View>
-      {CRITERIA.map(({ key, label }) => (
-        <View key={key} style={styles.card}>
-          <View style={styles.cardHeader}>
-            <Text style={styles.cardTitle}>{label}</Text>
-            <Text style={styles.band}>
-              {((r.band_scores as unknown) as Record<string, number>)[key]?.toFixed(1)}
-            </Text>
+      {CRITERIA.map(({ key, label }) => {
+        const value = ((r.band_scores as unknown) as Record<string, number>)[key] ?? 0;
+        return (
+          <View key={key} style={styles.card}>
+            <View style={styles.cardHeader}>
+              <Text style={styles.cardTitle}>{label}</Text>
+              <Text style={styles.band}>{value.toFixed(1)}</Text>
+            </View>
+            <View style={styles.critTrack}>
+              <View style={[styles.critFill, { width: `${(value / 9) * 100}%` }]} />
+            </View>
+            <Text style={styles.muted}>{r.criterion_breakdown[key]}</Text>
           </View>
-          <Text style={styles.muted}>{r.criterion_breakdown[key]}</Text>
+        );
+      })}
+      {r.examiner_note ? (
+        <View style={styles.focusBox}>
+          <View style={styles.focusBadge}>
+            <Text style={styles.focusBadgeText}>↑</Text>
+          </View>
+          <View style={{ flex: 1, gap: 3 }}>
+            <Text style={styles.focusLabel}>Focus to reach band 8</Text>
+            <Text style={styles.focusText}>{r.examiner_note}</Text>
+          </View>
         </View>
-      ))}
+      ) : null}
       {r.priority_errors.length > 0 && (
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Priority fixes</Text>
@@ -570,12 +584,30 @@ const styles = StyleSheet.create({
     fontFamily: theme.fontDisplayBold, color: theme.ink, fontSize: 62, lineHeight: 68,
     fontVariant: ["tabular-nums"],
   },
-  note: { color: theme.inkSecondary, textAlign: "center", fontSize: 14.5, lineHeight: 21 },
   card: {
     borderWidth: 1, borderColor: theme.border, backgroundColor: theme.card,
     borderRadius: 12, padding: 16, gap: 8,
   },
   cardHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "baseline" },
+  critTrack: {
+    height: 5, borderRadius: 3, backgroundColor: "rgba(201, 163, 92, 0.14)",
+    overflow: "hidden", marginVertical: 8,
+  },
+  critFill: { height: "100%", borderRadius: 3, backgroundColor: theme.brass },
+  focusBox: {
+    flexDirection: "row", gap: 11, alignItems: "flex-start",
+    borderWidth: 1, borderColor: "rgba(201, 163, 92, 0.4)", borderRadius: 12,
+    padding: 13, backgroundColor: "rgba(201, 163, 92, 0.07)",
+  },
+  focusBadge: {
+    width: 26, height: 26, borderRadius: 13, borderWidth: 1, borderColor: theme.brass,
+    alignItems: "center", justifyContent: "center",
+  },
+  focusBadgeText: { fontFamily: theme.fontDisplay, fontSize: 13, color: theme.brass },
+  focusLabel: {
+    fontSize: 11, letterSpacing: 0.8, textTransform: "uppercase", color: theme.brass,
+  },
+  focusText: { fontSize: 12.5, lineHeight: 18, color: theme.inkSecondary },
   cardTitle: { fontFamily: theme.fontDisplay, color: theme.ink, fontSize: 16 },
   band: {
     fontFamily: theme.fontMonoBold, color: theme.brass, fontSize: 21,
