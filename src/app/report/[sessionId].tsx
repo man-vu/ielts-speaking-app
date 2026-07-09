@@ -327,6 +327,15 @@ export default function ReportScreen() {
             <View style={styles.critTrack}>
               <View style={[styles.critFill, { width: `${(value / 9) * 100}%` }]} />
             </View>
+            {r.per_part.length > 1 && (
+              <View style={styles.partChipRow}>
+                {r.per_part.map((p) => (
+                  <Text key={p.part} style={styles.partChip}>
+                    P{p.part} {((p.band_scores as unknown) as Record<string, number>)[key] ?? 0}
+                  </Text>
+                ))}
+              </View>
+            )}
             <Text style={styles.muted}>{r.criterion_breakdown[key]}</Text>
           </View>
         );
@@ -594,6 +603,13 @@ const styles = StyleSheet.create({
     overflow: "hidden", marginVertical: 8,
   },
   critFill: { height: "100%", borderRadius: 3, backgroundColor: theme.brass },
+  partChipRow: { flexDirection: "row", gap: 6, marginBottom: 8 },
+  partChip: {
+    fontFamily: theme.fontMono, fontSize: 11, color: theme.inkSecondary,
+    backgroundColor: theme.cardRaised, borderRadius: 5,
+    paddingVertical: 3, paddingHorizontal: 8, overflow: "hidden",
+    fontVariant: ["tabular-nums"],
+  },
   focusBox: {
     flexDirection: "row", gap: 11, alignItems: "flex-start",
     borderWidth: 1, borderColor: "rgba(201, 163, 92, 0.4)", borderRadius: 12,
@@ -630,7 +646,8 @@ const styles = StyleSheet.create({
   },
   barFill: { height: 6, borderRadius: 3, backgroundColor: theme.brass },
   barValue: {
-    fontFamily: theme.fontMono, fontSize: 13, color: theme.ink, width: 30,
+    // 30 wrapped "5.0" onto two lines at the capped 1.25× Dynamic Type.
+    fontFamily: theme.fontMono, fontSize: 13, color: theme.ink, width: 38,
     textAlign: "right", fontVariant: ["tabular-nums"],
   },
   shareButton: {
