@@ -49,6 +49,8 @@ export default function ReportScreen() {
   const [activePart, setActivePart] = useState<number | "overall">("overall");
   // Which criterion's detail card is shown (the criteria sub-tabs).
   const [activeCriterion, setActiveCriterion] = useState<CriterionKey>("fluency_coherence");
+  // Per-part transcript expansion — collapsed by default to keep reports short.
+  const [transcriptOpen, setTranscriptOpen] = useState<Record<number, boolean>>({});
 
   // Fetch (server generates once, then caches) the spoken Band 8 answer.
   async function fetchBand8Audio(part: number) {
@@ -427,6 +429,7 @@ export default function ReportScreen() {
       {scopedParts.map((p) => {
         const rec = payload.audio.find((a) => a.part === p.part);
         const metrics = speechMetrics(p.transcript, rec?.duration);
+        const open = !!transcriptOpen[p.part];
         const partErrors = r.priority_errors.filter((e) => e.part === p.part);
         const segments = segmentTranscript(p.transcript, partErrors);
         // Messenger-style thread when the interleaved dialogue was captured;
@@ -484,6 +487,19 @@ export default function ReportScreen() {
               </Text>
             </View>
             {rec && <AudioScrubber url={rec.url} />}
+            <Pressable
+              style={styles.transcriptToggle}
+              onPress={() => setTranscriptOpen((prev) => ({ ...prev, [p.part]: !prev[p.part] }))}
+              accessibilityRole="button"
+              accessibilityState={{ expanded: open }}
+              hitSlop={8}
+            >
+              <Text style={styles.transcriptToggleText}>
+                {open ? "Hide transcript ▴" : `Show transcript ▾  ·  ${metrics.words} words`}
+              </Text>
+            </Pressable>
+            {open && (
+              <>
             {turns.length > 0 ? (
               <View style={styles.thread}>
                 {turns.map((d, i) => {
@@ -608,6 +624,8 @@ export default function ReportScreen() {
                 </Pressable>
               </View>
             ) : null}
+              </>
+            )}
             {p.part === 2 && payload.part23Slug ? (
               <Pressable
                 style={styles.retryTopic}
@@ -709,6 +727,12 @@ const styles = StyleSheet.create({
   },
   shareText: { color: theme.info, fontSize: 13.5 },
   copyLink: { color: theme.info, fontSize: 13 },
+  transcriptToggle: {
+    alignSelf: "flex-start", marginTop: 8,
+    borderWidth: 1, borderColor: theme.borderSoft, borderRadius: 8,
+    paddingVertical: 8, paddingHorizontal: 14,
+  },
+  transcriptToggleText: { color: theme.info, fontSize: 13 },
   band8Box: {
     borderLeftWidth: 2, borderLeftColor: theme.brass,
     paddingLeft: 12, paddingVertical: 2, gap: 8,
