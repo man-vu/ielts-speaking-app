@@ -295,7 +295,7 @@ export default function ReportScreen() {
                   </View>
                   <Text style={styles.barValue}>{value.toFixed(1)}</Text>
                 </View>
-                {r.per_part.length > 1 && (
+                {r.per_part.length > 0 && (
                   <View style={styles.partChipRow}>
                     {r.per_part.map((p) => (
                       <Text key={p.part} style={styles.partChip}>
