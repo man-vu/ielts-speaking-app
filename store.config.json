@@ -3,7 +3,7 @@
   "apple": {
     "info": {
       "en-US": {
-        "title": "IELTS Speaking",
+        "title": "IELTS Speaking Simulator",
         "subtitle": "AI examiner, real band scores",
         "description": "Sit the IELTS Speaking test whenever you're ready.\n\nIELTS Speaking is a full simulator of the real exam: a live AI examiner conducts the authentic three-part format — the interview, the cue-card long turn with one minute of preparation, and the discussion — with real timing, real question styles, and real past-paper topics.\n\nWHAT YOU GET AFTER EVERY SESSION\n• A band score on the four official criteria: Fluency & Coherence, Lexical Resource, Grammatical Range & Accuracy, and Pronunciation — whole bands per criterion, exactly like the real exam\n• The full conversation as a transcript, with your mistakes highlighted — tap any highlighted phrase to see the fix\n• Complete audio playback of the conversation, both voices\n• Your own answers rewritten at Band 8, readable and listenable, so you can hear exactly what a higher band sounds like with your ideas\n• Priority fixes and practice drills built from your actual errors\n\nPRACTICE YOUR WAY\n• Full exam, or drill a single part\n• Four examiners with distinct voices and temperaments — from warm and patient to stern and demanding, so exam-day pressure is nothing new\n• Casual chat mode: your examiner off duty, for relaxed conversation practice\n• A phrasebook that collects your corrected phrases, and a band trend across your history\n\nBuilt on real past-paper questions across hundreds of topics. If a session is interrupted — a call, a dead battery — your recording is kept and scored when you return.",
         "keywords": [
@@ -50,7 +50,7 @@
       "firstName": "Man",
       "lastName": "Vu",
       "email": "an.boardgame.99@gmail.com",
-      "phone": "+10000000000",
+      "phone": "REDACTED",
       "demoUsername": "REDACTED",
       "demoPassword": "REDACTED",
       "demoRequired": true,
