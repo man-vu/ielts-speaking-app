@@ -18,18 +18,20 @@ import { overline, theme } from "@/src/lib/theme";
 
 const AUTO_RESCORE_DELAY_MS = 20_000;
 
-const BAR_LABELS: { key: string; label: string }[] = [
-  { key: "fluency_coherence", label: "Fluency & coherence" },
-  { key: "lexical_resource", label: "Lexical resource" },
-  { key: "grammatical_range_accuracy", label: "Grammatical range" },
-  { key: "pronunciation", label: "Pronunciation" },
-];
+type CritKey =
+  | "fluency_coherence"
+  | "lexical_resource"
+  | "grammatical_range_accuracy"
+  | "pronunciation";
 
-const CRITERIA: { key: string; label: string }[] = [
-  { key: "fluency_coherence", label: "Fluency & Coherence" },
-  { key: "lexical_resource", label: "Lexical Resource" },
-  { key: "grammatical_range_accuracy", label: "Grammatical Range & Accuracy" },
-  { key: "pronunciation", label: "Pronunciation" },
+// One entry per criterion: `tab` is the short segmented-control label, `full`
+// the detail-card heading. The report shows one criterion at a time so a
+// single-part report stays short instead of stacking four long cards.
+const CRIT_TABS: { key: CritKey; tab: string; full: string }[] = [
+  { key: "fluency_coherence", tab: "Fluency", full: "Fluency & Coherence" },
+  { key: "lexical_resource", tab: "Lexical", full: "Lexical Resource" },
+  { key: "grammatical_range_accuracy", tab: "Grammar", full: "Grammatical Range & Accuracy" },
+  { key: "pronunciation", tab: "Pron", full: "Pronunciation" },
 ];
 
 export default function ReportScreen() {
@@ -48,6 +50,8 @@ export default function ReportScreen() {
   const [band8AudioBusy, setBand8AudioBusy] = useState<number | null>(null);
   // Which part the report is scoped to: "overall" (whole exam) or a part number.
   const [activePart, setActivePart] = useState<number | "overall">("overall");
+  // Which criterion's detail card is shown (the criteria sub-tabs).
+  const [activeCriterion, setActiveCriterion] = useState<CritKey>("fluency_coherence");
 
   // Fetch (server generates once, then caches) the spoken Band 8 answer.
   async function fetchBand8Audio(part: number) {
@@ -279,6 +283,12 @@ export default function ReportScreen() {
       ? r.priority_errors
       : r.priority_errors.filter((e) => e.part === activePart);
   const scopedParts = r.per_part.filter((p) => activePart === "overall" || p.part === activePart);
+  const activeCritMeta = CRIT_TABS.find((c) => c.key === activeCriterion) ?? CRIT_TABS[0];
+  const activeCritValue = ((activeBands as unknown) as Record<string, number>)[activeCriterion] ?? 0;
+  const activeCritBreakdown =
+    activePart === "overall"
+      ? r.criterion_breakdown[activeCriterion]
+      : segmentForPart(r.criterion_breakdown[activeCriterion], activePart);
   return (
     <View style={{ flex: 1 }}>
       <HallBackdrop />
@@ -322,31 +332,6 @@ export default function ReportScreen() {
             })}
           </View>
         )}
-        <View style={styles.barsBlock}>
-          {BAR_LABELS.map(({ key, label }) => {
-            const value = ((activeBands as unknown) as Record<string, number>)[key] ?? 0;
-            return (
-              <View key={key}>
-                <View style={styles.barRow}>
-                  <Text style={styles.barLabel}>{label}</Text>
-                  <View style={styles.barTrack}>
-                    <View style={[styles.barFill, { width: `${(value / 9) * 100}%` }]} />
-                  </View>
-                  <Text style={styles.barValue}>{value.toFixed(1)}</Text>
-                </View>
-                {activePart === "overall" && r.per_part.length > 1 && (
-                  <View style={styles.partChipRow}>
-                    {r.per_part.map((p) => (
-                      <Text key={p.part} style={styles.partChip}>
-                        P{p.part} {((p.band_scores as unknown) as Record<string, number>)[key] ?? 0}
-                      </Text>
-                    ))}
-                  </View>
-                )}
-              </View>
-            );
-          })}
-        </View>
         <Pressable
           style={styles.shareButton}
           onPress={() => {
@@ -366,25 +351,37 @@ export default function ReportScreen() {
           <Text style={styles.shareText}>Share with a teacher</Text>
         </Pressable>
       </View>
-      {CRITERIA.map(({ key, label }) => {
-        const value = ((activeBands as unknown) as Record<string, number>)[key] ?? 0;
-        const breakdown =
-          activePart === "overall"
-            ? r.criterion_breakdown[key]
-            : segmentForPart(r.criterion_breakdown[key], activePart);
-        return (
-          <View key={key} style={styles.card}>
-            <View style={styles.cardHeader}>
-              <Text style={styles.cardTitle}>{label}</Text>
-              <Text style={styles.band}>{value.toFixed(1)}</Text>
-            </View>
-            <View style={styles.critTrack}>
-              <View style={[styles.critFill, { width: `${(value / 9) * 100}%` }]} />
-            </View>
-            <Text style={styles.muted}>{breakdown}</Text>
-          </View>
-        );
-      })}
+      <View style={styles.critTabs}>
+        {CRIT_TABS.map(({ key, tab }) => {
+          const on = activeCriterion === key;
+          const v = ((activeBands as unknown) as Record<string, number>)[key] ?? 0;
+          return (
+            <Pressable
+              key={key}
+              style={[styles.critTab, on && styles.critTabOn]}
+              onPress={() => setActiveCriterion(key)}
+              accessibilityRole="button"
+              accessibilityState={{ selected: on }}
+              accessibilityLabel={tab}
+            >
+              <Text style={[styles.critTabLabel, on && styles.critTabLabelOn]} numberOfLines={1}>
+                {tab}
+              </Text>
+              <Text style={[styles.critTabScore, on && styles.critTabScoreOn]}>{v.toFixed(1)}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
+      <View style={styles.card}>
+        <View style={styles.cardHeader}>
+          <Text style={styles.cardTitle}>{activeCritMeta.full}</Text>
+          <Text style={styles.band}>{activeCritValue.toFixed(1)}</Text>
+        </View>
+        <View style={styles.critTrack}>
+          <View style={[styles.critFill, { width: `${(activeCritValue / 9) * 100}%` }]} />
+        </View>
+        <Text style={styles.muted}>{activeCritBreakdown}</Text>
+      </View>
       {scopedNote ? (
         <View style={styles.focusBox}>
           <View style={styles.focusBadge}>
@@ -648,13 +645,6 @@ const styles = StyleSheet.create({
     overflow: "hidden", marginVertical: 8,
   },
   critFill: { height: "100%", borderRadius: 3, backgroundColor: theme.brass },
-  partChipRow: { flexDirection: "row", gap: 6, marginTop: 5 },
-  partChip: {
-    fontFamily: theme.fontMono, fontSize: 11, color: theme.inkSecondary,
-    backgroundColor: theme.cardRaised, borderRadius: 5,
-    paddingVertical: 3, paddingHorizontal: 8, overflow: "hidden",
-    fontVariant: ["tabular-nums"],
-  },
   partTabs: {
     flexDirection: "row", gap: 6, alignSelf: "stretch", marginTop: 4,
   },
@@ -665,6 +655,19 @@ const styles = StyleSheet.create({
   partTabOn: { borderColor: theme.brass, backgroundColor: "rgba(201, 163, 92, 0.14)" },
   partTabText: { fontFamily: theme.fontMono, fontSize: 12, color: theme.inkMuted },
   partTabTextOn: { color: theme.brass },
+  critTabs: { flexDirection: "row", gap: 6 },
+  critTab: {
+    flex: 1, alignItems: "center", gap: 3, paddingVertical: 9, borderRadius: 9,
+    borderWidth: 1, borderColor: theme.borderSoft, backgroundColor: theme.card,
+  },
+  critTabOn: { borderColor: theme.brass, backgroundColor: "rgba(201, 163, 92, 0.14)" },
+  critTabLabel: { fontFamily: theme.fontMono, fontSize: 11, color: theme.inkMuted, letterSpacing: 0.2 },
+  critTabLabelOn: { color: theme.brass },
+  critTabScore: {
+    fontFamily: theme.fontMonoBold, fontSize: 15, color: theme.inkSecondary,
+    fontVariant: ["tabular-nums"],
+  },
+  critTabScoreOn: { color: theme.ink },
   focusBox: {
     flexDirection: "row", gap: 11, alignItems: "flex-start",
     borderWidth: 1, borderColor: "rgba(201, 163, 92, 0.4)", borderRadius: 12,
@@ -692,19 +695,6 @@ const styles = StyleSheet.create({
   fix: { color: theme.live, fontSize: 13.5 },
   assessingWrap: { flex: 1 },
   assessingFooter: { padding: 24, paddingTop: 0, gap: 10, alignItems: "center" },
-  barsBlock: { alignSelf: "stretch", gap: 13, paddingVertical: 6 },
-  barRow: { flexDirection: "row", alignItems: "center", gap: 12 },
-  barLabel: { flex: 1, fontSize: 13, color: theme.inkSecondary },
-  barTrack: {
-    width: 110, height: 6, borderRadius: 3, backgroundColor: theme.borderSoft,
-    overflow: "hidden",
-  },
-  barFill: { height: 6, borderRadius: 3, backgroundColor: theme.brass },
-  barValue: {
-    // 30 wrapped "5.0" onto two lines at the capped 1.25× Dynamic Type.
-    fontFamily: theme.fontMono, fontSize: 13, color: theme.ink, width: 38,
-    textAlign: "right", fontVariant: ["tabular-nums"],
-  },
   shareButton: {
     borderWidth: 1, borderColor: theme.borderSoft, borderRadius: 8,
     paddingVertical: 9, paddingHorizontal: 20,
