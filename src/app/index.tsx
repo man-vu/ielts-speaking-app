@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { Link, Stack, router, useFocusEffect } from "expo-router";
+import { Stack, router, useFocusEffect } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { supabase } from "@/src/lib/supabase";
 import { SIM_MONTHLY_UNITS, UNIT_COSTS } from "@/src/lib/config";
 import type { SimMode } from "@/src/lib/types";
 import { ONBOARDING_KEY, Onboarding } from "@/src/components/onboarding";
 import { HallBackdrop } from "@/src/components/hall-backdrop";
+import { BottomNav } from "@/src/components/bottom-nav";
 import { apiFetch } from "@/src/lib/api";
 import {
   clearPendingExam, getPendingExam, salvagePendingExam, type PendingExamMeta,
@@ -114,7 +115,7 @@ export default function Home() {
       <Stack.Screen options={{ title: "", headerShown: false }} />
       <Onboarding visible={showOnboarding} onDone={() => setShowOnboarding(false)} />
 
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
         <View style={styles.badgeWrap}>
           <ExaminerBadge speaking={false} size={116} />
         </View>
@@ -240,22 +241,19 @@ export default function Home() {
           ) : (
             <Skeleton width={150} height={13} radius={6} />
           )}
-          <View style={styles.footerLinks}>
-            <Link href="/phrasebook" style={styles.link}>Phrasebook</Link>
-            <Link href="/drills" style={styles.link}>Drills</Link>
-            <Link href="/history" style={styles.link}>History</Link>
-            <Pressable onPress={() => void supabase.auth.signOut()} accessibilityRole="button">
-              <Text style={styles.signOut}>Sign out</Text>
-            </Pressable>
-          </View>
+          <Pressable onPress={() => void supabase.auth.signOut()} accessibilityRole="button">
+            <Text style={styles.signOut}>Sign out</Text>
+          </Pressable>
         </View>
       </ScrollView>
+      <BottomNav />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
+  scroll: { flex: 1 },
   content: { padding: 24, paddingTop: 64, paddingBottom: 32, gap: 16 },
   badgeWrap: { alignItems: "center" },
   masthead: { gap: 8 },
@@ -318,7 +316,5 @@ const styles = StyleSheet.create({
   dailyGoalDone: { color: theme.live },
   footer: { gap: 12, marginTop: 14, alignItems: "center" },
   units: { color: theme.brass, fontSize: 13 },
-  footerLinks: { flexDirection: "row", gap: 24, alignItems: "center" },
-  link: { color: theme.info, fontSize: 13 },
   signOut: { color: theme.inkMuted, fontSize: 13 },
 });

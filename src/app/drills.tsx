@@ -7,6 +7,7 @@ import { supabase } from "@/src/lib/supabase";
 import { track } from "@/src/lib/telemetry";
 import { Loading } from "@/src/components/loading";
 import { HallBackdrop } from "@/src/components/hall-backdrop";
+import { BottomNav } from "@/src/components/bottom-nav";
 import { overline, theme } from "@/src/lib/theme";
 
 const DONE_KEY = "drills-done-v1";
@@ -79,7 +80,9 @@ export default function Drills() {
     <View style={styles.container}>
       <HallBackdrop />
       <Stack.Screen options={{ title: "Practice drills" }} />
+      <View style={styles.body}>
       <FlatList
+        style={styles.list}
         data={due}
         keyExtractor={(d) => d.drill_name}
         contentContainerStyle={{ gap: 12, paddingBottom: 24 }}
@@ -118,12 +121,16 @@ export default function Drills() {
           {resting} more resting until their next round
         </Text>
       )}
+      </View>
+      <BottomNav />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 20 },
+  container: { flex: 1 },
+  body: { flex: 1, padding: 20 },
+  list: { flex: 1 },
   intro: { color: theme.inkMuted, fontSize: 13, lineHeight: 19, marginBottom: 6 },
   card: {
     borderWidth: 1, borderColor: theme.border, backgroundColor: theme.card,

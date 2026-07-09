@@ -4,6 +4,7 @@ import { Stack, router, useFocusEffect } from "expo-router";
 import { supabase } from "@/src/lib/supabase";
 import { Skeleton } from "@/src/components/skeleton";
 import { HallBackdrop } from "@/src/components/hall-backdrop";
+import { BottomNav } from "@/src/components/bottom-nav";
 import { overline, theme } from "@/src/lib/theme";
 
 interface Bands {
@@ -105,7 +106,9 @@ export default function History() {
     <View style={styles.container}>
       <HallBackdrop />
       <Stack.Screen options={{ title: "History" }} />
+      <View style={styles.body}>
       <FlatList
+        style={styles.list}
         data={rows}
         keyExtractor={(r) => r.id}
         contentContainerStyle={{ gap: 10, paddingBottom: 20 }}
@@ -164,12 +167,16 @@ export default function History() {
           );
         }}
       />
+      </View>
+      <BottomNav />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 20 },
+  container: { flex: 1 },
+  body: { flex: 1, padding: 20 },
+  list: { flex: 1 },
   stats: {
     gap: 16, borderWidth: 1, borderColor: theme.border, backgroundColor: theme.card,
     borderRadius: 12, padding: 16, marginBottom: 16,
