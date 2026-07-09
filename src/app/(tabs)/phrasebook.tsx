@@ -7,6 +7,9 @@ import { supabase } from "@/src/lib/supabase";
 import { Loading } from "@/src/components/loading";
 import { HallBackdrop } from "@/src/components/hall-backdrop";
 import { TabHeader } from "@/src/components/tab-header";
+import {
+  deriveQuestion, type DialogueTurn, type TopicPayload,
+} from "@/src/lib/phrasebook-questions";
 import { overline, theme } from "@/src/lib/theme";
 
 const LEARNED_KEY = "phrasebook-learned-v1";
@@ -15,11 +18,20 @@ interface Entry {
   wrong: string;
   right: string;
   type: string;
+  part?: number;
+  question: string | null;
 }
 
+interface SessionRef {
+  dialogue: DialogueTurn[] | null;
+  topic_payload: TopicPayload | null;
+}
 interface EvalRow {
   created_at: string;
-  priority_errors: { error_type: string; description: string; correction: string; quote?: string }[] | null;
+  priority_errors:
+    | { error_type: string; description: string; correction: string; quote?: string; part?: number }[]
+    | null;
+  sim_sessions: SessionRef | SessionRef[] | null;
 }
 
 /** Kippy-style personal phrasebook, examination-hall edition: every
@@ -37,7 +49,7 @@ export default function Phrasebook() {
         const [{ data }, learnedRaw] = await Promise.all([
           supabase
             .from("sim_evaluations")
-            .select("created_at, priority_errors")
+            .select("created_at, priority_errors, sim_sessions(dialogue, topic_payload)")
             .order("created_at", { ascending: false })
             .limit(30),
           AsyncStorage.getItem(LEARNED_KEY),
@@ -46,12 +58,16 @@ export default function Phrasebook() {
         const seen = new Set<string>();
         const flat: Entry[] = [];
         for (const row of (data ?? []) as EvalRow[]) {
+          const sess = Array.isArray(row.sim_sessions) ? row.sim_sessions[0] : row.sim_sessions;
           for (const e of row.priority_errors ?? []) {
             const wrong = (e.quote ?? "").trim() || e.description;
             const key = `${wrong}→${e.correction}`;
             if (!wrong || !e.correction || seen.has(key)) continue;
             seen.add(key);
-            flat.push({ wrong, right: e.correction, type: e.error_type });
+            flat.push({
+              wrong, right: e.correction, type: e.error_type, part: e.part,
+              question: deriveQuestion(e, sess ?? null),
+            });
           }
         }
         setLearned(learnedRaw ? (JSON.parse(learnedRaw) as Record<string, boolean>) : {});
@@ -105,6 +121,14 @@ export default function Phrasebook() {
               onPress={() => toggle(item)}
               accessibilityRole="button"
             >
+              {item.question ? (
+                <Text style={styles.question} numberOfLines={2}>
+                  {item.part ? <Text style={styles.questionPart}>Part {item.part} · </Text> : null}
+                  {item.question}
+                </Text>
+              ) : item.part ? (
+                <Text style={[styles.question, styles.questionPart]}>Part {item.part}</Text>
+              ) : null}
               <Text style={[overline, styles.type]}>
                 {item.type}{isLearned ? " · learned ✓" : ""}
               </Text>
@@ -127,6 +151,8 @@ const styles = StyleSheet.create({
     borderRadius: 12, padding: 14, gap: 4,
   },
   cardLearned: { opacity: 0.45 },
+  question: { color: theme.inkSecondary, fontSize: 12.5, lineHeight: 17, fontStyle: "italic" },
+  questionPart: { color: theme.brass, fontStyle: "normal", fontFamily: theme.fontMono, fontSize: 11 },
   type: { color: theme.inkMuted, fontSize: 10 },
   wrong: {
     color: theme.stampRed, fontSize: 14.5, lineHeight: 21,

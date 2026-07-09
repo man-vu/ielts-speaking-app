@@ -54,6 +54,20 @@ export function segmentTranscript(
   return segments.length > 0 ? segments : [{ text: transcript }];
 }
 
+/** merge.ts concatenates each part's criterion breakdown as
+ *  "Part 1: …\nPart 2: …" and the examiner note as "Part 1: … Part 2: …"
+ *  (space-joined). Extracts a single part's segment; returns the whole string
+ *  when no "Part N:" marker is present (single-part or unexpected shape). */
+export function segmentForPart(text: string, part: number): string {
+  const marker = `Part ${part}: `;
+  const segs = text
+    .split(/(?=Part \d+: )/g)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const hit = segs.find((s) => s.startsWith(marker));
+  return hit ? hit.slice(marker.length).trim() : text;
+}
+
 const FILLER_PATTERN = /\b(?:um+|uh+|er+|erm+|hmm+)\b/gi;
 
 export interface SpeechMetrics {

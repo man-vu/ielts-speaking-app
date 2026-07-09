@@ -11,7 +11,7 @@ import { Assessing } from "@/src/components/assessing";
 import { Loading } from "@/src/components/loading";
 import { HallBackdrop } from "@/src/components/hall-backdrop";
 import { apiFetch } from "@/src/lib/api";
-import { segmentTranscript, speechMetrics } from "@/src/lib/report-insights";
+import { segmentForPart, segmentTranscript, speechMetrics } from "@/src/lib/report-insights";
 import { track } from "@/src/lib/telemetry";
 import type { ReportPayload } from "@/src/lib/types";
 import { overline, theme } from "@/src/lib/theme";
@@ -46,6 +46,8 @@ export default function ReportScreen() {
   const [band8Busy, setBand8Busy] = useState(false);
   const [band8Audio, setBand8Audio] = useState<Record<number, string>>({});
   const [band8AudioBusy, setBand8AudioBusy] = useState<number | null>(null);
+  // Which part the report is scoped to: "overall" (whole exam) or a part number.
+  const [activePart, setActivePart] = useState<number | "overall">("overall");
 
   // Fetch (server generates once, then caches) the spoken Band 8 answer.
   async function fetchBand8Audio(part: number) {
@@ -262,6 +264,21 @@ export default function ReportScreen() {
   }
 
   const r = payload.report;
+  // The report is scoped to "overall" (whole exam) or a single part via the
+  // part tabs. Scoped views read that part's bands, the extracted slice of the
+  // per-part-concatenated breakdown/note, and only that part's errors/sections.
+  const partList = r.per_part.map((p) => p.part);
+  const activeBands =
+    activePart === "overall"
+      ? r.band_scores
+      : r.per_part.find((p) => p.part === activePart)?.band_scores ?? r.band_scores;
+  const scopedNote =
+    activePart === "overall" ? r.examiner_note : segmentForPart(r.examiner_note, activePart);
+  const scopedErrors =
+    activePart === "overall"
+      ? r.priority_errors
+      : r.priority_errors.filter((e) => e.part === activePart);
+  const scopedParts = r.per_part.filter((p) => activePart === "overall" || p.part === activePart);
   return (
     <View style={{ flex: 1 }}>
       <HallBackdrop />
@@ -280,12 +297,34 @@ export default function ReportScreen() {
             },
           ]}
         >
-          <Text style={[overline, styles.stampLabel]}>Overall band</Text>
-          <Text style={styles.heroBand}>{r.band_scores.overall.toFixed(1)}</Text>
+          <Text style={[overline, styles.stampLabel]}>
+            {activePart === "overall" ? "Overall band" : `Part ${activePart} band`}
+          </Text>
+          <Text style={styles.heroBand}>{activeBands.overall.toFixed(1)}</Text>
         </Animated.View>
+        {partList.length > 1 && (
+          <View style={styles.partTabs}>
+            {(["overall", ...partList] as const).map((p) => {
+              const on = activePart === p;
+              return (
+                <Pressable
+                  key={p}
+                  style={[styles.partTab, on && styles.partTabOn]}
+                  onPress={() => setActivePart(p)}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: on }}
+                >
+                  <Text style={[styles.partTabText, on && styles.partTabTextOn]}>
+                    {p === "overall" ? "Overall" : `Part ${p}`}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        )}
         <View style={styles.barsBlock}>
           {BAR_LABELS.map(({ key, label }) => {
-            const value = ((r.band_scores as unknown) as Record<string, number>)[key] ?? 0;
+            const value = ((activeBands as unknown) as Record<string, number>)[key] ?? 0;
             return (
               <View key={key}>
                 <View style={styles.barRow}>
@@ -295,7 +334,7 @@ export default function ReportScreen() {
                   </View>
                   <Text style={styles.barValue}>{value.toFixed(1)}</Text>
                 </View>
-                {r.per_part.length > 0 && (
+                {activePart === "overall" && r.per_part.length > 1 && (
                   <View style={styles.partChipRow}>
                     {r.per_part.map((p) => (
                       <Text key={p.part} style={styles.partChip}>
@@ -328,7 +367,11 @@ export default function ReportScreen() {
         </Pressable>
       </View>
       {CRITERIA.map(({ key, label }) => {
-        const value = ((r.band_scores as unknown) as Record<string, number>)[key] ?? 0;
+        const value = ((activeBands as unknown) as Record<string, number>)[key] ?? 0;
+        const breakdown =
+          activePart === "overall"
+            ? r.criterion_breakdown[key]
+            : segmentForPart(r.criterion_breakdown[key], activePart);
         return (
           <View key={key} style={styles.card}>
             <View style={styles.cardHeader}>
@@ -338,25 +381,25 @@ export default function ReportScreen() {
             <View style={styles.critTrack}>
               <View style={[styles.critFill, { width: `${(value / 9) * 100}%` }]} />
             </View>
-            <Text style={styles.muted}>{r.criterion_breakdown[key]}</Text>
+            <Text style={styles.muted}>{breakdown}</Text>
           </View>
         );
       })}
-      {r.examiner_note ? (
+      {scopedNote ? (
         <View style={styles.focusBox}>
           <View style={styles.focusBadge}>
             <Text style={styles.focusBadgeText}>↑</Text>
           </View>
           <View style={{ flex: 1, gap: 3 }}>
             <Text style={styles.focusLabel}>Focus to reach band 8</Text>
-            <Text style={styles.focusText}>{r.examiner_note}</Text>
+            <Text style={styles.focusText}>{scopedNote}</Text>
           </View>
         </View>
       ) : null}
-      {r.priority_errors.length > 0 && (
+      {scopedErrors.length > 0 && (
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Priority fixes</Text>
-          {r.priority_errors.map((e, i) => (
+          {scopedErrors.map((e, i) => (
             <View key={i} style={styles.errorItem}>
               <Text style={styles.errorHead}>#{e.rank} · {e.error_type} · Part {e.part}</Text>
               <Text style={styles.muted}>{e.description}</Text>
@@ -365,7 +408,7 @@ export default function ReportScreen() {
           ))}
         </View>
       )}
-      {r.drill_queue.length > 0 && (
+      {activePart === "overall" && r.drill_queue.length > 0 && (
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Practice drills</Text>
           {r.drill_queue.map((d, i) => (
@@ -376,7 +419,7 @@ export default function ReportScreen() {
           ))}
         </View>
       )}
-      {r.per_part.map((p) => {
+      {scopedParts.map((p) => {
         const rec = payload.audio.find((a) => a.part === p.part);
         const metrics = speechMetrics(p.transcript, rec?.duration);
         const partErrors = r.priority_errors.filter((e) => e.part === p.part);
@@ -612,6 +655,16 @@ const styles = StyleSheet.create({
     paddingVertical: 3, paddingHorizontal: 8, overflow: "hidden",
     fontVariant: ["tabular-nums"],
   },
+  partTabs: {
+    flexDirection: "row", gap: 6, alignSelf: "stretch", marginTop: 4,
+  },
+  partTab: {
+    flex: 1, alignItems: "center", paddingVertical: 7, borderRadius: 8,
+    borderWidth: 1, borderColor: theme.borderSoft, backgroundColor: theme.card,
+  },
+  partTabOn: { borderColor: theme.brass, backgroundColor: "rgba(201, 163, 92, 0.14)" },
+  partTabText: { fontFamily: theme.fontMono, fontSize: 12, color: theme.inkMuted },
+  partTabTextOn: { color: theme.brass },
   focusBox: {
     flexDirection: "row", gap: 11, alignItems: "flex-start",
     borderWidth: 1, borderColor: "rgba(201, 163, 92, 0.4)", borderRadius: 12,

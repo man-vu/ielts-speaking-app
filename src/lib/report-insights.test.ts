@@ -1,5 +1,22 @@
 import { describe, expect, it } from "vitest";
-import { segmentTranscript, speechMetrics } from "./report-insights";
+import { segmentForPart, segmentTranscript, speechMetrics } from "./report-insights";
+
+describe("segmentForPart", () => {
+  it("extracts one part from a newline-joined breakdown", () => {
+    const text = "Part 1: hesitant delivery.\nPart 2: better flow.\nPart 3: some repetition.";
+    expect(segmentForPart(text, 2)).toBe("better flow.");
+    expect(segmentForPart(text, 1)).toBe("hesitant delivery.");
+  });
+
+  it("extracts one part from a space-joined note", () => {
+    const text = "Part 1: work on fillers. Part 2: extend answers. Part 3: justify views.";
+    expect(segmentForPart(text, 3)).toBe("justify views.");
+  });
+
+  it("returns the whole string when there is no part marker", () => {
+    expect(segmentForPart("Just one paragraph.", 1)).toBe("Just one paragraph.");
+  });
+});
 
 const err = (rank: number, quote?: string) => ({
   rank, error_type: "grammar", description: "d", correction: "c", quote,

@@ -117,6 +117,9 @@ export default function RootLayout() {
         headerTitleStyle: { fontFamily: theme.fontDisplay, fontSize: 19 },
         headerShadowVisible: false,
         contentStyle: { backgroundColor: theme.bg },
+        // Just a chevron — the previous route in the stack is the "(tabs)"
+        // group, whose raw name must never show as a back-button label.
+        headerBackButtonDisplayMode: "minimal",
       }}
     >
       {/* The tab group owns its own bar and per-screen headers — no stack header. */}
