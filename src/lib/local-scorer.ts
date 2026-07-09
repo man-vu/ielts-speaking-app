@@ -10,10 +10,30 @@ export interface LocalBands {
   feedback?: Record<string, string>;
 }
 
+export interface LocalFix {
+  wrong: string;
+  correction: string;
+  criterion?: string;
+}
+export interface LocalDrill {
+  name: string;
+  instruction: string;
+}
 export interface LocalResult {
   part: number;
   bands: LocalBands;
   transcript: string;
+  metrics?: Record<string, number>;
+  fixes?: LocalFix[];
+  drills?: LocalDrill[];
+}
+
+interface LocalScorePayload {
+  bands: LocalBands;
+  transcript: string;
+  metrics?: Record<string, number>;
+  fixes?: LocalFix[];
+  drills?: LocalDrill[];
 }
 
 /** Minimal shape of PartAccumulator we need — avoids importing its full type. */
@@ -42,8 +62,11 @@ export async function scoreLocally(acc: AccLike): Promise<LocalResult[]> {
     form.append("part", String(part));
     const res = await fetch(`${LOCAL_SCORER_URL}/score`, { method: "POST", body: form });
     if (!res.ok) throw new Error(`local scorer HTTP ${res.status}`);
-    const j = (await res.json()) as { bands: LocalBands; transcript: string };
-    results.push({ part, bands: j.bands, transcript: j.transcript });
+    const j = (await res.json()) as LocalScorePayload;
+    results.push({
+      part, bands: j.bands, transcript: j.transcript,
+      metrics: j.metrics, fixes: j.fixes, drills: j.drills,
+    });
   }
   _last = results;
   return results;
@@ -57,9 +80,10 @@ export async function scoreSessionLocally(sessionId: string): Promise<LocalResul
   form.append("session_id", sessionId);
   const res = await fetch(`${LOCAL_SCORER_URL}/score-session`, { method: "POST", body: form });
   if (!res.ok) throw new Error(`local scorer HTTP ${res.status}`);
-  const j = (await res.json()) as {
-    parts: { part: number; bands: LocalBands; transcript: string }[];
-  };
-  _last = j.parts.map((p) => ({ part: p.part, bands: p.bands, transcript: p.transcript }));
+  const j = (await res.json()) as { parts: (LocalScorePayload & { part: number })[] };
+  _last = j.parts.map((p) => ({
+    part: p.part, bands: p.bands, transcript: p.transcript,
+    metrics: p.metrics, fixes: p.fixes, drills: p.drills,
+  }));
   return _last;
 }
