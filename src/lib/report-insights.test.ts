@@ -1,5 +1,29 @@
 import { describe, expect, it } from "vitest";
-import { segmentForPart, segmentTranscript, speechMetrics } from "./report-insights";
+import {
+  classifyCriterion, segmentForPart, segmentTranscript, speechMetrics,
+} from "./report-insights";
+
+describe("classifyCriterion", () => {
+  it("classifies the scorer's structured error types", () => {
+    expect(classifyCriterion("GRAMMAR: VERB TENSE/MEANING")).toBe("grammatical_range_accuracy");
+    expect(classifyCriterion("LEXICAL: WORD CHOICE/COLLOCATION")).toBe("lexical_resource");
+    expect(classifyCriterion("PRONUNCIATION: WORD STRESS/INTONATION")).toBe("pronunciation");
+    expect(classifyCriterion("FLUENCY: HESITATION/PAUSES")).toBe("fluency_coherence");
+  });
+
+  it("classifies looser wording from criterion_impact / drills", () => {
+    expect(classifyCriterion("affects grammatical range and accuracy")).toBe(
+      "grammatical_range_accuracy"
+    );
+    expect(classifyCriterion("limited vocabulary and collocation")).toBe("lexical_resource");
+    expect(classifyCriterion("unclear intonation and word stress")).toBe("pronunciation");
+    expect(classifyCriterion("too many fillers, disjointed flow")).toBe("fluency_coherence");
+  });
+
+  it("returns null when nothing matches", () => {
+    expect(classifyCriterion("general practice")).toBeNull();
+  });
+});
 
 describe("segmentForPart", () => {
   it("extracts one part from a newline-joined breakdown", () => {

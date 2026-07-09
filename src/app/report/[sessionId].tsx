@@ -11,23 +11,20 @@ import { Assessing } from "@/src/components/assessing";
 import { Loading } from "@/src/components/loading";
 import { HallBackdrop } from "@/src/components/hall-backdrop";
 import { apiFetch } from "@/src/lib/api";
-import { segmentForPart, segmentTranscript, speechMetrics } from "@/src/lib/report-insights";
+import {
+  classifyCriterion, segmentForPart, segmentTranscript, speechMetrics,
+  type CriterionKey,
+} from "@/src/lib/report-insights";
 import { track } from "@/src/lib/telemetry";
 import type { ReportPayload } from "@/src/lib/types";
 import { overline, theme } from "@/src/lib/theme";
 
 const AUTO_RESCORE_DELAY_MS = 20_000;
 
-type CritKey =
-  | "fluency_coherence"
-  | "lexical_resource"
-  | "grammatical_range_accuracy"
-  | "pronunciation";
-
 // One entry per criterion: `tab` is the short segmented-control label, `full`
 // the detail-card heading. The report shows one criterion at a time so a
 // single-part report stays short instead of stacking four long cards.
-const CRIT_TABS: { key: CritKey; tab: string; full: string }[] = [
+const CRIT_TABS: { key: CriterionKey; tab: string; full: string }[] = [
   { key: "fluency_coherence", tab: "Fluency", full: "Fluency & Coherence" },
   { key: "lexical_resource", tab: "Lexical", full: "Lexical Resource" },
   { key: "grammatical_range_accuracy", tab: "Grammar", full: "Grammatical Range & Accuracy" },
@@ -51,7 +48,7 @@ export default function ReportScreen() {
   // Which part the report is scoped to: "overall" (whole exam) or a part number.
   const [activePart, setActivePart] = useState<number | "overall">("overall");
   // Which criterion's detail card is shown (the criteria sub-tabs).
-  const [activeCriterion, setActiveCriterion] = useState<CritKey>("fluency_coherence");
+  const [activeCriterion, setActiveCriterion] = useState<CriterionKey>("fluency_coherence");
 
   // Fetch (server generates once, then caches) the spoken Band 8 answer.
   async function fetchBand8Audio(part: number) {
@@ -289,6 +286,17 @@ export default function ReportScreen() {
     activePart === "overall"
       ? r.criterion_breakdown[activeCriterion]
       : segmentForPart(r.criterion_breakdown[activeCriterion], activePart);
+  // Priority fixes and drills follow the selected criterion tab. Items whose
+  // criterion can't be classified (null) stay visible under every tab so no
+  // fix is ever hidden.
+  const critErrors = scopedErrors.filter((e) => {
+    const c = classifyCriterion(`${e.criterion_impact} ${e.error_type} ${e.description}`);
+    return c === null || c === activeCriterion;
+  });
+  const critDrills = r.drill_queue.filter((d) => {
+    const c = classifyCriterion(`${d.target_error} ${d.drill_name} ${d.instruction}`);
+    return c === null || c === activeCriterion;
+  });
   return (
     <View style={{ flex: 1 }}>
       <HallBackdrop />
@@ -393,10 +401,10 @@ export default function ReportScreen() {
           </View>
         </View>
       ) : null}
-      {scopedErrors.length > 0 && (
+      {critErrors.length > 0 && (
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Priority fixes</Text>
-          {scopedErrors.map((e, i) => (
+          <Text style={styles.cardTitle}>Priority fixes · {activeCritMeta.tab}</Text>
+          {critErrors.map((e, i) => (
             <View key={i} style={styles.errorItem}>
               <Text style={styles.errorHead}>#{e.rank} · {e.error_type} · Part {e.part}</Text>
               <Text style={styles.muted}>{e.description}</Text>
@@ -405,10 +413,10 @@ export default function ReportScreen() {
           ))}
         </View>
       )}
-      {activePart === "overall" && r.drill_queue.length > 0 && (
+      {critDrills.length > 0 && (
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Practice drills</Text>
-          {r.drill_queue.map((d, i) => (
+          <Text style={styles.cardTitle}>Practice drills · {activeCritMeta.tab}</Text>
+          {critDrills.map((d, i) => (
             <View key={i} style={styles.errorItem}>
               <Text style={styles.errorHead}>{d.drill_name} ({d.target_error})</Text>
               <Text style={styles.muted}>{d.instruction}</Text>

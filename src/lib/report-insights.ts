@@ -68,6 +68,29 @@ export function segmentForPart(text: string, part: number): string {
   return hit ? hit.slice(marker.length).trim() : text;
 }
 
+export type CriterionKey =
+  | "fluency_coherence"
+  | "lexical_resource"
+  | "grammatical_range_accuracy"
+  | "pronunciation";
+
+// The scorer's error_type / criterion_impact are structured ("GRAMMAR: …",
+// "LEXICAL: …", "PRONUNCIATION: …", "FLUENCY: …"), so keyword-matching the
+// combined text classifies a fix/drill to its criterion reliably.
+const CRIT_PATTERNS: { key: CriterionKey; re: RegExp }[] = [
+  { key: "grammatical_range_accuracy", re: /grammat|grammar|\btense|article|preposition|agreement|plural|\bclause|conditional|verb\s*form|subject.?verb|sentence structure/i },
+  { key: "lexical_resource", re: /lexic|vocab|word choice|collocation|\bidiom|synonym|register|wrong word/i },
+  { key: "pronunciation", re: /pronunc|mispron|\bstress\b|intonation|rhythm|phonem|\bsounds?\b|\baccent/i },
+  { key: "fluency_coherence", re: /fluen|coheren|cohesion|hesitat|paus|filler|discourse|linking|\bflow\b|repetition|self.?correct/i },
+];
+
+/** Best-effort criterion for a free-text fix/drill; null when nothing matches
+ *  (callers treat null as "show under every criterion" so items are never lost). */
+export function classifyCriterion(text: string): CriterionKey | null {
+  for (const { key, re } of CRIT_PATTERNS) if (re.test(text)) return key;
+  return null;
+}
+
 const FILLER_PATTERN = /\b(?:um+|uh+|er+|erm+|hmm+)\b/gi;
 
 export interface SpeechMetrics {
