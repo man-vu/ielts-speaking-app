@@ -1,12 +1,12 @@
 import { useCallback, useState } from "react";
 import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
-import { Stack, useFocusEffect } from "expo-router";
+import { useFocusEffect } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Haptics from "expo-haptics";
 import { supabase } from "@/src/lib/supabase";
 import { Loading } from "@/src/components/loading";
 import { HallBackdrop } from "@/src/components/hall-backdrop";
-import { BottomNav } from "@/src/components/bottom-nav";
+import { TabHeader } from "@/src/components/tab-header";
 import { overline, theme } from "@/src/lib/theme";
 
 const LEARNED_KEY = "phrasebook-learned-v1";
@@ -75,13 +75,12 @@ export default function Phrasebook() {
   return (
     <View style={styles.container}>
       <HallBackdrop />
-      <Stack.Screen options={{ title: "Phrasebook" }} />
-      <View style={styles.body}>
+      <TabHeader title="Phrasebook" />
       <FlatList
         style={styles.list}
         data={entries}
         keyExtractor={(e) => `${e.wrong}→${e.right}`}
-        contentContainerStyle={{ gap: 10, paddingBottom: 24 }}
+        contentContainerStyle={{ gap: 10, paddingHorizontal: 20, paddingBottom: 24 }}
         ListHeaderComponent={
           entries.length > 0 ? (
             <Text style={styles.intro}>
@@ -115,15 +114,12 @@ export default function Phrasebook() {
           );
         }}
       />
-      </View>
-      <BottomNav />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  body: { flex: 1, padding: 20 },
   list: { flex: 1 },
   intro: { color: theme.inkMuted, fontSize: 13, lineHeight: 19, marginBottom: 6 },
   card: {

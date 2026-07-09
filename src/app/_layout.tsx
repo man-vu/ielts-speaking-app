@@ -118,6 +118,9 @@ export default function RootLayout() {
         headerShadowVisible: false,
         contentStyle: { backgroundColor: theme.bg },
       }}
-    />
+    >
+      {/* The tab group owns its own bar and per-screen headers — no stack header. */}
+      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+    </Stack>
   );
 }

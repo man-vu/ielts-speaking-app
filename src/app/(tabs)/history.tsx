@@ -1,10 +1,10 @@
 import { useCallback, useState } from "react";
 import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
-import { Stack, router, useFocusEffect } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import { supabase } from "@/src/lib/supabase";
 import { Skeleton } from "@/src/components/skeleton";
 import { HallBackdrop } from "@/src/components/hall-backdrop";
-import { BottomNav } from "@/src/components/bottom-nav";
+import { TabHeader } from "@/src/components/tab-header";
 import { overline, theme } from "@/src/lib/theme";
 
 interface Bands {
@@ -105,13 +105,12 @@ export default function History() {
   return (
     <View style={styles.container}>
       <HallBackdrop />
-      <Stack.Screen options={{ title: "History" }} />
-      <View style={styles.body}>
+      <TabHeader title="History" />
       <FlatList
         style={styles.list}
         data={rows}
         keyExtractor={(r) => r.id}
-        contentContainerStyle={{ gap: 10, paddingBottom: 20 }}
+        contentContainerStyle={{ gap: 10, paddingHorizontal: 20, paddingBottom: 20 }}
         ListHeaderComponent={
           scored.length > 0 ? (
             <View style={styles.stats}>
@@ -167,15 +166,12 @@ export default function History() {
           );
         }}
       />
-      </View>
-      <BottomNav />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  body: { flex: 1, padding: 20 },
   list: { flex: 1 },
   stats: {
     gap: 16, borderWidth: 1, borderColor: theme.border, backgroundColor: theme.card,
