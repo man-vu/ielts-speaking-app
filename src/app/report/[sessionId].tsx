@@ -287,12 +287,23 @@ export default function ReportScreen() {
           {BAR_LABELS.map(({ key, label }) => {
             const value = ((r.band_scores as unknown) as Record<string, number>)[key] ?? 0;
             return (
-              <View key={key} style={styles.barRow}>
-                <Text style={styles.barLabel}>{label}</Text>
-                <View style={styles.barTrack}>
-                  <View style={[styles.barFill, { width: `${(value / 9) * 100}%` }]} />
+              <View key={key}>
+                <View style={styles.barRow}>
+                  <Text style={styles.barLabel}>{label}</Text>
+                  <View style={styles.barTrack}>
+                    <View style={[styles.barFill, { width: `${(value / 9) * 100}%` }]} />
+                  </View>
+                  <Text style={styles.barValue}>{value.toFixed(1)}</Text>
                 </View>
-                <Text style={styles.barValue}>{value.toFixed(1)}</Text>
+                {r.per_part.length > 1 && (
+                  <View style={styles.partChipRow}>
+                    {r.per_part.map((p) => (
+                      <Text key={p.part} style={styles.partChip}>
+                        P{p.part} {((p.band_scores as unknown) as Record<string, number>)[key] ?? 0}
+                      </Text>
+                    ))}
+                  </View>
+                )}
               </View>
             );
           })}
@@ -327,15 +338,6 @@ export default function ReportScreen() {
             <View style={styles.critTrack}>
               <View style={[styles.critFill, { width: `${(value / 9) * 100}%` }]} />
             </View>
-            {r.per_part.length > 1 && (
-              <View style={styles.partChipRow}>
-                {r.per_part.map((p) => (
-                  <Text key={p.part} style={styles.partChip}>
-                    P{p.part} {((p.band_scores as unknown) as Record<string, number>)[key] ?? 0}
-                  </Text>
-                ))}
-              </View>
-            )}
             <Text style={styles.muted}>{r.criterion_breakdown[key]}</Text>
           </View>
         );
@@ -603,7 +605,7 @@ const styles = StyleSheet.create({
     overflow: "hidden", marginVertical: 8,
   },
   critFill: { height: "100%", borderRadius: 3, backgroundColor: theme.brass },
-  partChipRow: { flexDirection: "row", gap: 6, marginBottom: 8 },
+  partChipRow: { flexDirection: "row", gap: 6, marginTop: 5 },
   partChip: {
     fontFamily: theme.fontMono, fontSize: 11, color: theme.inkSecondary,
     backgroundColor: theme.cardRaised, borderRadius: 5,
