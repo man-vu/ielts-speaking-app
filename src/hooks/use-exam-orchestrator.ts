@@ -4,7 +4,8 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { File, Paths } from "expo-file-system";
 import * as LegacyFileSystem from "expo-file-system/legacy";
 import { AudioManager } from "react-native-audio-api";
-import { PART2_PREP_SECONDS, PART2_TALK_SECONDS } from "@/src/lib/config";
+import { LOCAL_SCORER_URL, PART2_PREP_SECONDS, PART2_TALK_SECONDS } from "@/src/lib/config";
+import { scoreLocally } from "@/src/lib/local-scorer";
 import {
   examReducer, initialExamState, phaseTimeoutSeconds, recordingPartFor,
   type ExamEvent, type ExamPhase,
@@ -573,6 +574,21 @@ export function useExamOrchestrator(mode: SimMode, part23Slug?: string): {
       );
       void clearPendingExam();
       return setScreen("fatal");
+    }
+    // Dev: free local scoring on a LAN PC server (env-gated). Best-effort — any
+    // failure falls through to the normal cloud path so the exam is never lost.
+    if (LOCAL_SCORER_URL) {
+      try {
+        setBanner("Scoring on your PC…");
+        await scoreLocally(getAccumulator());
+        void clearPendingExam();
+        setBanner("");
+        router.replace("/local-report");
+        return;
+      } catch (err) {
+        reportError(err instanceof Error ? err : new Error("local scoring failed"));
+        setBanner(`Local scorer unreachable at ${LOCAL_SCORER_URL} — using the cloud instead.`);
+      }
     }
     await uploadRecordings();
   }
