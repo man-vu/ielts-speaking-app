@@ -15,6 +15,8 @@ import {
   classifyCriterion, segmentForPart, segmentTranscript, speechMetrics,
   type CriterionKey,
 } from "@/src/lib/report-insights";
+import { LOCAL_SCORER_URL } from "@/src/lib/config";
+import { scoreSessionLocally } from "@/src/lib/local-scorer";
 import { track } from "@/src/lib/telemetry";
 import type { ReportPayload } from "@/src/lib/types";
 import { overline, theme } from "@/src/lib/theme";
@@ -51,6 +53,7 @@ export default function ReportScreen() {
   const [activeCriterion, setActiveCriterion] = useState<CriterionKey>("fluency_coherence");
   // Per-part transcript expansion — collapsed by default to keep reports short.
   const [transcriptOpen, setTranscriptOpen] = useState<Record<number, boolean>>({});
+  const [localBusy, setLocalBusy] = useState(false);
 
   // Fetch (server generates once, then caches) the spoken Band 8 answer.
   async function fetchBand8Audio(part: number) {
@@ -360,6 +363,33 @@ export default function ReportScreen() {
         >
           <Text style={styles.shareText}>Share with a teacher</Text>
         </Pressable>
+        {LOCAL_SCORER_URL ? (
+          <Pressable
+            style={styles.shareButton}
+            disabled={localBusy}
+            accessibilityRole="button"
+            onPress={() => {
+              setLocalBusy(true);
+              scoreSessionLocally(sessionId)
+                .then((parts) => {
+                  if (parts.length === 0) {
+                    Alert.alert("Nothing to score locally",
+                      "This attempt has no phone-recorded (.wav) audio.");
+                  } else {
+                    router.push("/local-report");
+                  }
+                })
+                .catch((e) =>
+                  Alert.alert("Local scoring failed",
+                    `Is the PC server running?\n${e instanceof Error ? e.message : ""}`))
+                .finally(() => setLocalBusy(false));
+            }}
+          >
+            <Text style={styles.shareText}>
+              {localBusy ? "Scoring on your PC…" : "Re-score on my PC (free)"}
+            </Text>
+          </Pressable>
+        ) : null}
       </View>
       <View style={styles.critTabs}>
         {CRIT_TABS.map(({ key, tab }) => {

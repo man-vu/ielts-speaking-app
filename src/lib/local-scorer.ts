@@ -48,3 +48,18 @@ export async function scoreLocally(acc: AccLike): Promise<LocalResult[]> {
   _last = results;
   return results;
 }
+
+/** Re-score an EXISTING attempt: the PC server pulls its stored recordings from
+ *  Supabase and scores them locally. Returns [] if the session has no locally
+ *  scorable (.wav) parts (e.g. a web-recorded session). */
+export async function scoreSessionLocally(sessionId: string): Promise<LocalResult[]> {
+  const form = new FormData();
+  form.append("session_id", sessionId);
+  const res = await fetch(`${LOCAL_SCORER_URL}/score-session`, { method: "POST", body: form });
+  if (!res.ok) throw new Error(`local scorer HTTP ${res.status}`);
+  const j = (await res.json()) as {
+    parts: { part: number; bands: LocalBands; transcript: string }[];
+  };
+  _last = j.parts.map((p) => ({ part: p.part, bands: p.bands, transcript: p.transcript }));
+  return _last;
+}
