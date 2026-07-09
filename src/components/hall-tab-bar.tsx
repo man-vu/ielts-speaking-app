@@ -1,5 +1,6 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { BookOpen, History, House, Target, type LucideIcon } from "lucide-react-native";
 import { theme } from "@/src/lib/theme";
 
 export interface HallTab {
@@ -8,10 +9,19 @@ export interface HallTab {
   label: string;
 }
 
-/** Custom bottom tab bar for the Tabs navigator. A hand-rendered View/Pressable
- *  bar — the Tabs navigator manages the (mounted, instant-switching) scenes, we
- *  own every pixel of the bar so it wears the examination-hall look and never
- *  inherits the navigator's default light theme. */
+/** Lucide icon per tab, named by the tab's job (approach borrowed from the
+ *  clinic-wellness app's tab bar). */
+const ICONS: Record<string, LucideIcon> = {
+  index: House,
+  history: History,
+  drills: Target,
+  phrasebook: BookOpen,
+};
+
+/** Custom bottom tab bar for the Tabs navigator: lucide icon over a mono label,
+ *  brass when active, on the examination-hall ink surface. The Tabs navigator
+ *  keeps scenes mounted (instant switching); we own every pixel of the bar so
+ *  it never inherits the navigator's default light theme. */
 export function HallTabBar({
   tabs,
   activeIndex,
@@ -26,6 +36,8 @@ export function HallTabBar({
     <View style={[styles.bar, { paddingBottom: Math.max(insets.bottom, 10) }]}>
       {tabs.map((tab, index) => {
         const on = index === activeIndex;
+        const Icon = ICONS[tab.name] ?? House;
+        const color = on ? theme.brass : theme.inkMuted;
         return (
           <Pressable
             key={tab.key}
@@ -35,11 +47,10 @@ export function HallTabBar({
             accessibilityState={{ selected: on }}
             accessibilityLabel={tab.label}
           >
-            <View style={[styles.pill, on && styles.pillOn]}>
-              <Text numberOfLines={1} style={[styles.label, on && styles.labelOn]}>
-                {tab.label}
-              </Text>
-            </View>
+            <Icon size={22} color={color} strokeWidth={on ? 2.2 : 1.7} />
+            <Text numberOfLines={1} style={[styles.label, { color }]}>
+              {tab.label}
+            </Text>
           </Pressable>
         );
       })}
@@ -53,17 +64,9 @@ const styles = StyleSheet.create({
     backgroundColor: theme.card,
     borderTopWidth: 1,
     borderTopColor: theme.border,
-    paddingTop: 8,
+    paddingTop: 9,
     paddingHorizontal: 6,
   },
-  tab: { flex: 1, alignItems: "center" },
-  pill: { paddingVertical: 7, paddingHorizontal: 10, borderRadius: 9 },
-  pillOn: { backgroundColor: "rgba(201, 163, 92, 0.14)" },
-  label: {
-    fontFamily: theme.fontMono,
-    fontSize: 11.5,
-    letterSpacing: 0.2,
-    color: theme.inkMuted,
-  },
-  labelOn: { color: theme.brass },
+  tab: { flex: 1, alignItems: "center", gap: 3, paddingVertical: 2 },
+  label: { fontFamily: theme.fontMono, fontSize: 10, letterSpacing: 0.2 },
 });
