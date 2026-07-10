@@ -15,6 +15,7 @@ import {
   classifyCriterion, segmentForPart, segmentTranscript, speechMetrics,
   type CriterionKey,
 } from "@/src/lib/report-insights";
+import { aggregateRubric } from "@/src/lib/rubric";
 import { LOCAL_SCORER_URL } from "@/src/lib/config";
 import { scoreSessionLocally } from "@/src/lib/local-scorer";
 import { track } from "@/src/lib/telemetry";
@@ -54,6 +55,35 @@ export default function ReportScreen() {
   // Per-part transcript expansion — collapsed by default to keep reports short.
   const [transcriptOpen, setTranscriptOpen] = useState<Record<number, boolean>>({});
   const [localBusy, setLocalBusy] = useState(false);
+  const [rubricBusy, setRubricBusy] = useState(false);
+  // True once a backfill ran (even if it produced nothing) — hides the button
+  // instead of offering a generate that can never succeed.
+  const [rubricTried, setRubricTried] = useState(false);
+
+  // Official-descriptor judgements are backfilled on demand for reports
+  // scored before the rubric feature and merged into the payload in place.
+  async function generateRubric() {
+    if (rubricBusy) return;
+    setRubricBusy(true);
+    try {
+      const res = await apiFetch(`/api/sessions/${sessionId}/rubric`, { method: "POST" });
+      const body = (await res.json()) as {
+        per_part?: NonNullable<ReportPayload["report"]>["per_part"];
+        error?: string;
+      };
+      if (!res.ok || !body.per_part) throw new Error(body.error ?? `HTTP ${res.status}`);
+      setPayload((prev) =>
+        prev?.report
+          ? { ...prev, report: { ...prev.report, per_part: body.per_part! } }
+          : prev
+      );
+      setRubricTried(true);
+    } catch (e) {
+      Alert.alert("Could not check the official rubric", e instanceof Error ? e.message : "");
+    } finally {
+      setRubricBusy(false);
+    }
+  }
 
   // Fetch (server generates once, then caches) the spoken Band 8 answer.
   async function fetchBand8Audio(part: number) {
@@ -302,6 +332,14 @@ export default function ReportScreen() {
     const c = classifyCriterion(`${d.target_error} ${d.drill_name} ${d.instruction}`);
     return c === null || c === activeCriterion;
   });
+  // Official-descriptor view for the criterion card, following the same
+  // scope as everything else: one part's own judgements, or all parts folded
+  // into the merged band. activeCritValue is already the scoped whole band.
+  const rubric = aggregateRubric(
+    r.per_part.filter((p) => activePart === "overall" || p.part === activePart),
+    activeCriterion,
+    activeCritValue
+  );
   return (
     <View style={{ flex: 1 }}>
       <HallBackdrop />
@@ -420,6 +458,76 @@ export default function ReportScreen() {
         <View style={styles.critTrack}>
           <View style={[styles.critFill, { width: `${(activeCritValue / 9) * 100}%` }]} />
         </View>
+        {rubric ? (
+          <View style={styles.rubricBox}>
+            <Text style={styles.rubricLabel}>
+              Official descriptors · Band {rubric.band}
+            </Text>
+            {rubric.lines.map((l, i) => (
+              <Pressable
+                key={i}
+                disabled={!(l.met && l.quote)}
+                onPress={() =>
+                  Alert.alert(
+                    `${activeCritMeta.full} — Band ${rubric.band}`,
+                    `${l.text}\n\nFrom your answer:\n"${l.quote}"`
+                  )
+                }
+                accessibilityRole={l.met && l.quote ? "button" : undefined}
+              >
+                <View style={styles.rubricRow}>
+                  <Text
+                    style={[
+                      styles.rubricMark,
+                      l.met ? styles.rubricMarkMet : styles.rubricMarkUnmet,
+                    ]}
+                  >
+                    {l.met ? "✓" : "○"}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.rubricText,
+                      l.met ? styles.rubricTextMet : styles.rubricTextUnmet,
+                    ]}
+                  >
+                    {l.text}
+                  </Text>
+                </View>
+              </Pressable>
+            ))}
+            {rubric.lines.some((l) => l.met && l.quote) && (
+              <Text style={styles.hint}>
+                Tap an underlined line to see the evidence from your answer.
+              </Text>
+            )}
+            {rubric.next && (
+              <>
+                <Text style={[styles.rubricLabel, styles.rubricNextLabel]}>
+                  To reach band {rubric.next.band}
+                </Text>
+                {rubric.next.missing.map((t, i) => (
+                  <View key={i} style={styles.rubricRow}>
+                    <Text style={[styles.rubricMark, styles.rubricMarkNext]}>→</Text>
+                    <Text style={[styles.rubricText, styles.rubricTextNext]}>{t}</Text>
+                  </View>
+                ))}
+              </>
+            )}
+          </View>
+        ) : rubricTried ? null : (
+          <Pressable
+            onPress={() => void generateRubric()}
+            disabled={rubricBusy}
+            accessibilityRole="button"
+            hitSlop={8}
+          >
+            <Text style={[styles.band8Head, rubricBusy && { opacity: 0.5 }]}>
+              {rubricBusy
+                ? "Checking against the official descriptors…"
+                : "☑ Check against the official band descriptors"}
+            </Text>
+          </Pressable>
+        )}
         <Text style={styles.muted}>{activeCritBreakdown}</Text>
       </View>
       {scopedNote ? (
@@ -738,6 +846,27 @@ const styles = StyleSheet.create({
     fontSize: 11, letterSpacing: 0.8, textTransform: "uppercase", color: theme.brass,
   },
   focusText: { fontSize: 12.5, lineHeight: 18, color: theme.inkSecondary },
+  rubricBox: { gap: 7, marginTop: 2 },
+  rubricLabel: {
+    fontSize: 11, letterSpacing: 0.8, textTransform: "uppercase",
+    color: theme.inkMuted, marginBottom: 2,
+  },
+  rubricNextLabel: { color: theme.brass, marginTop: 8 },
+  rubricRow: { flexDirection: "row", gap: 8, alignItems: "flex-start" },
+  rubricMark: {
+    fontFamily: theme.fontMono, fontSize: 12, lineHeight: 18,
+    width: 14, textAlign: "center",
+  },
+  rubricMarkMet: { color: theme.live },
+  rubricMarkUnmet: { color: theme.inkMuted },
+  rubricMarkNext: { color: theme.brass },
+  rubricText: { flex: 1, fontSize: 13, lineHeight: 18 },
+  rubricTextMet: {
+    color: theme.ink, textDecorationLine: "underline",
+    textDecorationColor: "rgba(201, 163, 92, 0.55)",
+  },
+  rubricTextUnmet: { color: theme.inkMuted },
+  rubricTextNext: { color: theme.inkSecondary },
   cardTitle: { fontFamily: theme.fontDisplay, color: theme.ink, fontSize: 16 },
   band: {
     fontFamily: theme.fontMonoBold, color: theme.brass, fontSize: 21,

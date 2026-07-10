@@ -1,4 +1,5 @@
 import type { UNIT_COSTS } from "./config";
+import type { RubricAssessment } from "./rubric";
 
 export type SimMode = keyof typeof UNIT_COSTS;
 export type SimStatus = "in_progress" | "completed" | "scored" | "aborted";
@@ -48,6 +49,8 @@ export interface ReportPayload {
       band_scores: BandScores;
       /** Candidate's own answer rewritten at Band 8 (newer reports only). */
       model_answer?: string;
+      /** Official descriptor lines judged for this part (newer reports only). */
+      rubric?: RubricAssessment;
     }[];
     priority_errors: {
       part: number; rank: number; error_type: string; description: string;
