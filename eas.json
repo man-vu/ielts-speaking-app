@@ -8,7 +8,13 @@
     },
     "production": {
       "autoIncrement": true,
-      "ios": { "resourceClass": "m-medium" }
+      "ios": { "resourceClass": "m-medium" },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://ielts-speaking-simulator-mauve.vercel.app",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://qieonjtximftryowghwv.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFpZW9uanR4aW1mdHJ5b3dnaHd2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ3MDU4NjgsImV4cCI6MjA5MDI4MTg2OH0.Mh7VxDgAdXybDLvEqrvM7ML_B4smLb5BO42nHVbJ2Ik",
+        "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": "230124496406-9kfk3m5lc5b08q24ob9i1ucc9jai4c35.apps.googleusercontent.com"
+      }
     }
   },
   "submit": {
