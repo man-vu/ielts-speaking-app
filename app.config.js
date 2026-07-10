@@ -5,10 +5,12 @@
 module.exports = ({ config }) => {
   const iosClientId = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID;
 
+  // NOTE: expo-apple-authentication has NO config plugin — Sign in with Apple
+  // is enabled purely by ios.usesAppleSignIn below. Listing it as a plugin
+  // throws "Failed to resolve plugin for module" during prebuild.
   const plugins = (config.plugins || []).filter(
     (p) => (Array.isArray(p) ? p[0] : p) !== "@react-native-google-signin/google-signin"
   );
-  plugins.push("expo-apple-authentication");
 
   if (iosClientId) {
     // iOS URL scheme is the reversed client ID.
