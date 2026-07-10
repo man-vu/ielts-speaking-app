@@ -3,7 +3,11 @@ import { router } from "expo-router";
 import {
   KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View,
 } from "react-native";
+import * as AppleAuthentication from "expo-apple-authentication";
 import { supabase } from "@/src/lib/supabase";
+import {
+  AuthCancelled, googleAuthAvailable, signInWithApple, signInWithGoogle,
+} from "@/src/lib/social-auth";
 import { HallBackdrop } from "@/src/components/hall-backdrop";
 import { overline, theme } from "@/src/lib/theme";
 
@@ -22,6 +26,21 @@ export default function SignIn() {
     router.replace("/");
   }
 
+  async function social(fn: () => Promise<void>) {
+    setBusy(true);
+    setError("");
+    try {
+      await fn();
+      router.replace("/");
+    } catch (e) {
+      if (!(e instanceof AuthCancelled)) {
+        setError(e instanceof Error ? e.message : "Sign-in failed.");
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : undefined}
@@ -33,7 +52,35 @@ export default function SignIn() {
         <Text style={styles.wordmark}>IELTS Speaking</Text>
         <View style={styles.rule} />
       </View>
-      <Text style={styles.subtitle}>Sign in with your IELTS Pro account.</Text>
+      <Text style={styles.subtitle}>Sign in to sit the exam.</Text>
+
+      {Platform.OS === "ios" && (
+        <AppleAuthentication.AppleAuthenticationButton
+          buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
+          buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.WHITE}
+          cornerRadius={10}
+          style={styles.appleButton}
+          onPress={() => void social(signInWithApple)}
+        />
+      )}
+      {googleAuthAvailable && (
+        <Pressable
+          style={styles.googleButton}
+          onPress={() => void social(signInWithGoogle)}
+          disabled={busy}
+          accessibilityRole="button"
+        >
+          <Text style={styles.googleG}>G</Text>
+          <Text style={styles.googleText}>Continue with Google</Text>
+        </Pressable>
+      )}
+
+      <View style={styles.dividerRow}>
+        <View style={styles.dividerLine} />
+        <Text style={styles.dividerText}>or with email</Text>
+        <View style={styles.dividerLine} />
+      </View>
+
       <TextInput
         style={styles.input} placeholder="Email" autoCapitalize="none"
         placeholderTextColor={theme.inkMuted}
@@ -58,6 +105,16 @@ const styles = StyleSheet.create({
   wordmark: { fontFamily: theme.fontDisplayBold, fontSize: 34, color: theme.ink },
   rule: { height: 1, backgroundColor: theme.border, marginTop: 4 },
   subtitle: { color: theme.inkSecondary, marginBottom: 6, fontSize: 14.5 },
+  appleButton: { height: 48, width: "100%" },
+  googleButton: {
+    height: 48, borderRadius: 10, backgroundColor: "#fff",
+    flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10,
+  },
+  googleG: { fontFamily: theme.fontDisplayBold, fontSize: 18, color: "#4285F4" },
+  googleText: { fontSize: 15.5, color: "#1f1f1f", fontWeight: "600" },
+  dividerRow: { flexDirection: "row", alignItems: "center", gap: 12, marginVertical: 2 },
+  dividerLine: { flex: 1, height: 1, backgroundColor: theme.border },
+  dividerText: { color: theme.inkMuted, fontSize: 12 },
   input: {
     borderWidth: 1, borderColor: theme.border, borderRadius: 10, padding: 13,
     color: theme.ink, backgroundColor: theme.card, fontSize: 15,
