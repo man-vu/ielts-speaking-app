@@ -6,7 +6,7 @@ import {
 import * as AppleAuthentication from "expo-apple-authentication";
 import { supabase } from "@/src/lib/supabase";
 import {
-  AuthCancelled, googleAuthAvailable, signInWithApple, signInWithGoogle,
+  appleAuthEnabled, AuthCancelled, googleAuthAvailable, signInWithApple, signInWithGoogle,
 } from "@/src/lib/social-auth";
 import { HallBackdrop } from "@/src/components/hall-backdrop";
 import { overline, theme } from "@/src/lib/theme";
@@ -21,6 +21,7 @@ export default function SignIn() {
   // on Android automatically.)
   const [appleAvailable, setAppleAvailable] = useState(false);
   useEffect(() => {
+    if (!appleAuthEnabled) return;
     void AppleAuthentication.isAvailableAsync().then(setAppleAvailable).catch(() => {});
   }, []);
 
@@ -65,7 +66,7 @@ export default function SignIn() {
       {appleAvailable && (
         <AppleAuthentication.AppleAuthenticationButton
           buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
-          buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.WHITE}
+          buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.WHITE_OUTLINE}
           cornerRadius={10}
           style={styles.appleButton}
           onPress={() => void social(signInWithApple)}
@@ -113,13 +114,14 @@ const styles = StyleSheet.create({
   wordmark: { fontFamily: theme.fontDisplayBold, fontSize: 34, color: theme.ink },
   rule: { height: 1, backgroundColor: theme.border, marginTop: 4 },
   subtitle: { color: theme.inkSecondary, marginBottom: 6, fontSize: 14.5 },
-  appleButton: { height: 48, width: "100%" },
+  appleButton: { height: 50, width: "100%" },
   googleButton: {
-    height: 48, borderRadius: 10, backgroundColor: "#fff",
+    height: 50, borderRadius: 10, backgroundColor: theme.cardRaised,
+    borderWidth: 1, borderColor: theme.borderSoft,
     flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10,
   },
   googleG: { fontFamily: theme.fontDisplayBold, fontSize: 18, color: "#4285F4" },
-  googleText: { fontSize: 15.5, color: "#1f1f1f", fontWeight: "600" },
+  googleText: { fontSize: 15.5, color: theme.ink, fontWeight: "600" },
   dividerRow: { flexDirection: "row", alignItems: "center", gap: 12, marginVertical: 2 },
   dividerLine: { flex: 1, height: 1, backgroundColor: theme.border },
   dividerText: { color: theme.inkMuted, fontSize: 12 },

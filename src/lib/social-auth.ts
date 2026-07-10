@@ -17,6 +17,11 @@ const GOOGLE_IOS_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID;
  *  the button stays hidden rather than erroring. */
 export const googleAuthAvailable = !!GOOGLE_IOS_CLIENT_ID;
 
+/** Apple sign-in requires the entitlement, which local Mac dev builds strip to
+ *  code-sign. Those builds set EXPO_PUBLIC_APPLE_SIGNIN=0 to hide the button
+ *  (it would fail); EAS/TestFlight builds leave it unset so the button shows. */
+export const appleAuthEnabled = process.env.EXPO_PUBLIC_APPLE_SIGNIN !== "0";
+
 /** Thrown-and-swallowed sentinel for a user-cancelled native sheet. */
 export class AuthCancelled extends Error {
   constructor() {
