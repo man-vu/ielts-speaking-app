@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { Stack, router, useSegments, type ErrorBoundaryProps } from "expo-router";
+import { StatusBar } from "expo-status-bar";
 import { useFonts } from "expo-font";
 import {
   Fraunces_600SemiBold,
@@ -110,6 +111,8 @@ export default function RootLayout() {
   // itself. Each screen renders <HallBackdrop /> instead; contentStyle stays
   // opaque ink so an unwrapped screen degrades to flat dark, never white.
   return (
+    <>
+    <StatusBar style="light" />
     <Stack
       screenOptions={{
         headerStyle: { backgroundColor: "#1B2242" },
@@ -125,5 +128,6 @@ export default function RootLayout() {
       {/* The tab group owns its own bar and per-screen headers — no stack header. */}
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
     </Stack>
+    </>
   );
 }

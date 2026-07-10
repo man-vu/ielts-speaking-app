@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { router } from "expo-router";
+import { router, Stack } from "expo-router";
 import {
   KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View,
 } from "react-native";
@@ -53,6 +53,7 @@ export default function SignIn() {
       behavior={Platform.OS === "ios" ? "padding" : undefined}
       style={styles.container}
     >
+      <Stack.Screen options={{ headerShown: false }} />
       <HallBackdrop />
       <View style={styles.masthead}>
         <Text style={overline}>The Speaking Test</Text>
