@@ -22,9 +22,14 @@ module.exports = ({ config }) => {
     plugins.push("./plugins/with-modular-headers");
   }
 
+  // Sign in with Apple is on by default; EXPO_NO_APPLE_SIGNIN=1 disables the
+  // entitlement for local Mac device builds where Xcode automatic signing
+  // can't provision the capability (EAS builds always keep it on).
+  const appleSignIn = process.env.EXPO_NO_APPLE_SIGNIN !== "1";
+
   return {
     ...config,
-    ios: { ...config.ios, usesAppleSignIn: true },
+    ios: { ...config.ios, usesAppleSignIn: appleSignIn },
     plugins,
   };
 };

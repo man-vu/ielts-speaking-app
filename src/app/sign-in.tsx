@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { router } from "expo-router";
 import {
   KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View,
@@ -16,6 +16,13 @@ export default function SignIn() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  // Only show the Apple button when the build actually carries the Sign in
+  // with Apple entitlement — otherwise tapping it would error. (Also hides it
+  // on Android automatically.)
+  const [appleAvailable, setAppleAvailable] = useState(false);
+  useEffect(() => {
+    void AppleAuthentication.isAvailableAsync().then(setAppleAvailable).catch(() => {});
+  }, []);
 
   async function signIn() {
     setBusy(true);
@@ -54,7 +61,7 @@ export default function SignIn() {
       </View>
       <Text style={styles.subtitle}>Sign in to sit the exam.</Text>
 
-      {Platform.OS === "ios" && (
+      {appleAvailable && (
         <AppleAuthentication.AppleAuthenticationButton
           buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
           buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.WHITE}
