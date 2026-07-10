@@ -50,9 +50,9 @@
       "firstName": "Man",
       "lastName": "Vu",
       "email": "manvminh@gmail.com",
-      "phone": "REDACTED",
-      "demoUsername": "REDACTED",
-      "demoPassword": "REDACTED",
+      "phone": "REDACTED_SET_IN_APP_STORE_CONNECT",
+      "demoUsername": "REDACTED_SET_IN_APP_STORE_CONNECT",
+      "demoPassword": "REDACTED_SET_IN_APP_STORE_CONNECT",
       "demoRequired": true,
       "notes": "Sign in with the demo account, tap 'Begin exam' (or 'Casual chat'), allow microphone access, and speak with the AI examiner. The exam is a live voice conversation (requires a quiet environment and microphone). After finishing, the report screen shows the band score, transcript, audio playback, and Band 8 rewrites. Past scored sessions are available under History if you prefer not to speak."
     }
