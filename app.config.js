@@ -18,6 +18,8 @@ module.exports = ({ config }) => {
       "com.googleusercontent.apps." +
       iosClientId.replace(/\.apps\.googleusercontent\.com$/, "");
     plugins.push(["@react-native-google-signin/google-signin", { iosUrlScheme: scheme }]);
+    // Google's transitive Swift pods need modular headers to link statically.
+    plugins.push("./plugins/with-modular-headers");
   }
 
   return {
