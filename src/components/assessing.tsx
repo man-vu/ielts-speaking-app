@@ -20,7 +20,13 @@ export function Assessing() {
   const [trackWidth, setTrackWidth] = useState(0);
 
   useEffect(() => {
-    const timer = setInterval(() => setNowIndex((i) => (i + 1) % CRITERIA.length), 6000);
+    // Advance through the criteria once and HOLD on the last — never wrap
+    // (wrapping flipped already-"done" criteria back to pending, which read as
+    // the screen looping/bugging out while scoring was still running).
+    const timer = setInterval(
+      () => setNowIndex((i) => Math.min(i + 1, CRITERIA.length - 1)),
+      6000
+    );
     return () => clearInterval(timer);
   }, []);
 

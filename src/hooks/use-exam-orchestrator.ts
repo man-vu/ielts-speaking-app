@@ -25,6 +25,24 @@ import { useMicStream } from "./use-mic-stream";
 
 export type Screen = "preflight" | "exam" | "uploading" | "upload_failed" | "fatal";
 
+/** On a mid-exam reconnect the resumed Gemini session can lose track of where
+ *  it was and restart the interview (observed: Part 3 reverting to Part 1
+ *  questions). Re-anchor it to the current phase. Muted phases (part2 prep/
+ *  talk) and intro/connecting need nothing — the examiner is silent or the
+ *  kickoff covers it. */
+function resumeContextFor(phase: ExamPhase): string | null {
+  switch (phase) {
+    case "part1":
+      return "[SYSTEM] Reconnected mid-exam. You are still in Part 1 (the interview). Continue your Part 1 questions where you left off. Do NOT greet again or restart the exam.";
+    case "part2_rounding":
+      return "[SYSTEM] Reconnected. You are wrapping up Part 2. Ask your one or two brief rounding-off questions, then move on to Part 3. Do NOT restart earlier parts.";
+    case "part3":
+      return "[SYSTEM] Reconnected mid-exam. You are in Part 3 (the abstract discussion). Continue with Part 3 discussion questions on the same theme. Do NOT restart the interview or ask Part 1 or Part 2 questions again.";
+    default:
+      return null;
+  }
+}
+
 export function useExamOrchestrator(mode: SimMode, part23Slug?: string): {
   screen: Screen;
   phase: ExamPhase;
@@ -363,6 +381,10 @@ export function useExamOrchestrator(mode: SimMode, part23Slug?: string): {
       liveRef.current.setExaminerMuted(
         stateRef.current.phase === "part2_talk" || stateRef.current.phase === "part2_prep"
       );
+      // Re-anchor the model to the current phase so it continues instead of
+      // restarting the interview from Part 1.
+      const resumeMsg = resumeContextFor(stateRef.current.phase);
+      if (resumeMsg) liveRef.current.sendSystemText(resumeMsg);
     } catch {
       await abortSession();
     }
