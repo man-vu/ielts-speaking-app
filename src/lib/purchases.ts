@@ -20,13 +20,20 @@ export type PlanKey = keyof typeof PLAN_PRODUCTS;
 
 let configuredFor: string | null = null;
 
+// Set at build time ONLY for natively-debuggable test builds (e.g. a
+// standalone debug APK whose JS bundle is compiled with __DEV__ === false but
+// whose native binary is still debuggable). Must never be set in a release
+// build — the native SDK force-closes the app if a test key runs there.
+const RC_ALLOW_TEST = process.env.EXPO_PUBLIC_RC_ALLOW_TEST === "1";
+
 export function purchasesAvailable(): boolean {
   if (RC_IOS_KEY.length === 0) return false;
   // RevenueCat Test Store keys ("test_…") are DEVELOPMENT-ONLY: the native SDK
-  // force-closes the app if a test key is used in a release build, so we must
-  // never even configure with one there. They work only in dev builds
-  // (__DEV__). A production key ("appl_…") works in iOS release builds.
-  if (RC_IOS_KEY.startsWith("test_")) return __DEV__;
+  // force-closes the app if a test key is used in a release (non-debuggable)
+  // build, so we must never configure with one there. Allow it only in a dev
+  // build (__DEV__) or a build explicitly flagged as a debuggable test build.
+  if (RC_IOS_KEY.startsWith("test_")) return __DEV__ || RC_ALLOW_TEST;
+  // A production key ("appl_…") works in iOS release builds.
   return Platform.OS === "ios";
 }
 
