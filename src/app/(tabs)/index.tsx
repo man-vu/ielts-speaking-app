@@ -35,6 +35,8 @@ function currentMonthStart(): string {
 
 export default function Home() {
   const [unitsLine, setUnitsLine] = useState("");
+  // "locked": plan has no simulator access; "empty": paid plan out of units.
+  const [upgradeCta, setUpgradeCta] = useState<"" | "locked" | "empty">("");
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [pending, setPending] = useState<PendingExamMeta | null>(null);
   const [spokeToday, setSpokeToday] = useState<boolean | null>(null);
@@ -99,11 +101,13 @@ export default function Home() {
         if (cancelled) return;
         setSpokeToday((todayCount ?? 0) > 0);
         const limit = SIM_MONTHLY_UNITS[(profile?.tier as string) ?? "free"];
+        const left = limit === null ? null : Math.max(0, (limit ?? 0) - (usage?.units ?? 0));
         setUnitsLine(
           limit === null
             ? "Unlimited sessions"
-            : `${Math.max(0, (limit ?? 0) - (usage?.units ?? 0))} of ${limit ?? 0} units left this month`
+            : `${left} of ${limit ?? 0} units left this month`
         );
+        setUpgradeCta(!limit ? "locked" : left === 0 ? "empty" : "");
       })();
       return () => { cancelled = true; };
     }, [])
@@ -235,6 +239,26 @@ export default function Home() {
           </Text>
         )}
 
+        {upgradeCta !== "" && (
+          <Pressable
+            style={({ pressed }) => [styles.upgradeCard, pressed && styles.pressed]}
+            onPress={() => router.push("/paywall")}
+            accessibilityRole="button"
+          >
+            <Text style={styles.upgradeTitle}>
+              {upgradeCta === "locked"
+                ? "Unlock the examiner"
+                : "You're out of units this month"}
+            </Text>
+            <Text style={styles.upgradeBlurb}>
+              {upgradeCta === "locked"
+                ? "Subscribe to sit full mock exams with a live AI examiner — from $9.99/month."
+                : "Upgrade your plan to keep practising — more units start immediately."}
+            </Text>
+            <Text style={styles.upgradeLink}>View plans →</Text>
+          </Pressable>
+        )}
+
         <View style={styles.footer}>
           {unitsLine ? (
             <Text style={styles.units}>{unitsLine}</Text>
@@ -249,6 +273,13 @@ export default function Home() {
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
+  upgradeCard: {
+    borderWidth: 1, borderColor: theme.brass, borderRadius: 14,
+    backgroundColor: "rgba(201, 163, 92, 0.1)", padding: 16, gap: 5,
+  },
+  upgradeTitle: { fontFamily: theme.fontDisplay, fontSize: 16.5, color: theme.ink },
+  upgradeBlurb: { fontSize: 13, lineHeight: 19, color: theme.inkSecondary },
+  upgradeLink: { fontFamily: theme.fontDisplay, color: theme.brass, fontSize: 13.5, marginTop: 3 },
   scroll: { flex: 1 },
   content: { padding: 24, paddingTop: 8, paddingBottom: 32, gap: 16 },
   badgeWrap: { alignItems: "center" },

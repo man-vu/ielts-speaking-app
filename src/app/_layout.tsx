@@ -13,6 +13,7 @@ import {
 } from "@expo-google-fonts/ibm-plex-mono";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/src/lib/supabase";
+import { configurePurchases } from "@/src/lib/purchases";
 import { initCrashReporting, reportError } from "@/src/lib/telemetry";
 import { flushPreviousSession, installCrashCrumbs, logCrumb } from "@/src/lib/debug-log";
 import { overline, theme } from "@/src/lib/theme";
@@ -101,6 +102,13 @@ export default function RootLayout() {
     if (!session && !onSignIn) router.replace("/sign-in");
     if (session && onSignIn) router.replace("/");
   }, [ready, session, segments]);
+
+  // RevenueCat is identified by the Supabase uid — the purchase webhook keys
+  // profiles.tier off it. No-op on Android and keyless dev builds.
+  useEffect(() => {
+    const uid = session?.user?.id;
+    if (uid) void configurePurchases(uid);
+  }, [session?.user?.id]);
 
   // Hold the frame until fonts + auth state exist — prevents both the
   // unstyled-text flash and the protected-content flash for signed-out users.

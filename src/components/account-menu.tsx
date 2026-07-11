@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
+import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { supabase } from "@/src/lib/supabase";
 import { SIM_MONTHLY_UNITS } from "@/src/lib/config";
@@ -14,9 +15,14 @@ function monthStart(): string {
 
 const TIER_LABELS: Record<string, string> = {
   free: "Free",
+  standard: "Standard",
+  ai_plus: "AI Plus",
   ai_pro: "AI Pro",
   pro: "Pro",
+  admin: "Admin",
 };
+
+const PAID_TIERS = new Set(["ai_plus", "ai_pro", "admin"]);
 
 /** The account entry point: a top-right avatar that opens a small sheet with
  *  plan, remaining units, and sign out. Rendered in-flow inside TabHeader; the
@@ -92,6 +98,18 @@ export function AccountMenu() {
             </View>
             {unitsLine ? <Text style={styles.units}>{unitsLine}</Text> : null}
             <Pressable
+              style={styles.upgrade}
+              onPress={() => {
+                setOpen(false);
+                router.push("/paywall");
+              }}
+              accessibilityRole="button"
+            >
+              <Text style={styles.upgradeText}>
+                {PAID_TIERS.has(tier) ? "Manage plan" : "Upgrade plan"}
+              </Text>
+            </Pressable>
+            <Pressable
               style={styles.signOut}
               onPress={() => {
                 setOpen(false);
@@ -143,6 +161,16 @@ const styles = StyleSheet.create({
   rowLabel: { color: theme.inkSecondary, fontSize: 13.5 },
   rowValue: { fontFamily: theme.fontDisplay, color: theme.ink, fontSize: 14.5 },
   units: { color: theme.brass, fontSize: 12.5 },
+  upgrade: {
+    marginTop: 6,
+    borderWidth: 1,
+    borderColor: theme.brass,
+    borderRadius: 8,
+    paddingVertical: 9,
+    alignItems: "center",
+    backgroundColor: "rgba(201, 163, 92, 0.1)",
+  },
+  upgradeText: { fontFamily: theme.fontDisplay, color: theme.brass, fontSize: 13.5 },
   signOut: {
     marginTop: 6,
     borderWidth: 1,
