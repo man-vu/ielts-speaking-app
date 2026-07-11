@@ -56,12 +56,12 @@ export default function ReportScreen() {
   const [transcriptOpen, setTranscriptOpen] = useState<Record<number, boolean>>({});
   const [localBusy, setLocalBusy] = useState(false);
   const [rubricBusy, setRubricBusy] = useState(false);
-  // True once a backfill ran (even if it produced nothing) — hides the button
-  // instead of offering a generate that can never succeed.
-  const [rubricTried, setRubricTried] = useState(false);
+  const autoRubricAttemptedRef = useRef(false);
 
-  // Official-descriptor judgements are backfilled on demand for reports
+  // Official-descriptor judgements are backfilled automatically for reports
   // scored before the rubric feature and merged into the payload in place.
+  // Runs unprompted, so failures are silent — the prose breakdown still
+  // renders, and reopening the report retries.
   async function generateRubric() {
     if (rubricBusy) return;
     setRubricBusy(true);
@@ -77,9 +77,8 @@ export default function ReportScreen() {
           ? { ...prev, report: { ...prev.report, per_part: body.per_part! } }
           : prev
       );
-      setRubricTried(true);
-    } catch (e) {
-      Alert.alert("Could not check the official rubric", e instanceof Error ? e.message : "");
+    } catch {
+      // Silent: automatic generation must never interrupt reading the report.
     } finally {
       setRubricBusy(false);
     }
@@ -220,6 +219,19 @@ export default function ReportScreen() {
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [payload?.status]);
+
+  // Reports scored before the rubric feature get their official-descriptor
+  // judgement generated automatically on open — no button, once per visit.
+  useEffect(() => {
+    if (payload?.status !== "scored" || !payload.report) return;
+    if (autoRubricAttemptedRef.current) return;
+    const parts = payload.report.per_part;
+    if (parts.some((p) => p.rubric)) return; // newer report — already judged
+    if (!parts.some((p) => p.transcript?.trim().length > 20)) return; // nothing to judge
+    autoRubricAttemptedRef.current = true;
+    void generateRubric();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [payload]);
 
   if (!payload) {
     return (
@@ -514,20 +526,11 @@ export default function ReportScreen() {
               </>
             )}
           </View>
-        ) : rubricTried ? null : (
-          <Pressable
-            onPress={() => void generateRubric()}
-            disabled={rubricBusy}
-            accessibilityRole="button"
-            hitSlop={8}
-          >
-            <Text style={[styles.band8Head, rubricBusy && { opacity: 0.5 }]}>
-              {rubricBusy
-                ? "Checking against the official descriptors…"
-                : "☑ Check against the official band descriptors"}
-            </Text>
-          </Pressable>
-        )}
+        ) : rubricBusy ? (
+          <Text style={styles.hint}>
+            Matching your answers against the official band descriptors…
+          </Text>
+        ) : null}
         <Text style={styles.muted}>{activeCritBreakdown}</Text>
       </View>
       {scopedNote ? (
