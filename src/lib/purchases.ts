@@ -21,7 +21,10 @@ export type PlanKey = keyof typeof PLAN_PRODUCTS;
 let configuredFor: string | null = null;
 
 export function purchasesAvailable(): boolean {
-  return Platform.OS === "ios" && RC_IOS_KEY.length > 0;
+  if (RC_IOS_KEY.length === 0) return false;
+  // RevenueCat Test Store keys ("test_…") simulate purchases on any platform
+  // — they make the paywall fully testable on sideloaded Android builds too.
+  return Platform.OS === "ios" || RC_IOS_KEY.startsWith("test_");
 }
 
 /** Configure (or re-identify) RevenueCat for the signed-in Supabase user.
