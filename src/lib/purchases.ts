@@ -22,9 +22,12 @@ let configuredFor: string | null = null;
 
 export function purchasesAvailable(): boolean {
   if (RC_IOS_KEY.length === 0) return false;
-  // RevenueCat Test Store keys ("test_…") simulate purchases on any platform
-  // — they make the paywall fully testable on sideloaded Android builds too.
-  return Platform.OS === "ios" || RC_IOS_KEY.startsWith("test_");
+  // RevenueCat Test Store keys ("test_…") are DEVELOPMENT-ONLY: the native SDK
+  // force-closes the app if a test key is used in a release build, so we must
+  // never even configure with one there. They work only in dev builds
+  // (__DEV__). A production key ("appl_…") works in iOS release builds.
+  if (RC_IOS_KEY.startsWith("test_")) return __DEV__;
+  return Platform.OS === "ios";
 }
 
 /** Configure (or re-identify) RevenueCat for the signed-in Supabase user.
